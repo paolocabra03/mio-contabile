@@ -218,8 +218,18 @@ function pendingBanner() {
 
 /* ---------- calcoli ---------- */
 const isTr = m => m.tip === "Trasferimenti";
-function stats(month) {
-  const ms = S.mov.filter(m => sameMonth(m.d, month) && !isTr(m));
+// Una spesa che copre più mesi (es. abbonamento trimestrale) ha nella descrizione "[3 mesi]".
+// Solo i grafici la dividono tra i mesi; saldi e patrimonio restano con l'importo intero nel giorno pagato.
+const SPREAD_RE = /\s*\[(\d{1,2}) mesi\]/i;
+const spreadOf = m => { const r = SPREAD_RE.exec(m.desc || ""); const n = r ? +r[1] : 1; return n > 1 && n <= 24 ? n : 1; };
+const cleanDesc = d => String(d || "").replace(SPREAD_RE, "").trim();
+function stats(month, spread) {
+  const part = m => {
+    const n = spread && m.tipo === "Spesa" ? spreadOf(m) : 1;
+    const k = (month.getFullYear() - m.d.getFullYear()) * 12 + month.getMonth() - m.d.getMonth();
+    return k >= 0 && k < n ? m.imp / n : 0;
+  };
+  const ms = S.mov.filter(m => !isTr(m)).map(m => ({ ...m, imp: part(m) })).filter(m => m.imp);
   const sp = ms.filter(m => m.tipo === "Spesa");
   const ent = ms.filter(m => m.tipo === "Entrata").reduce((a, m) => a + m.imp, 0);
   const usc = sp.reduce((a, m) => a + m.imp, 0);
@@ -268,7 +278,8 @@ function rowHtml(m, withDate) {
       <span class="a tr">${eur(m.imp)}</span></div>`;
   }
   const inc = m.tipo === "Entrata";
-  const sub = [m.conto, withDate ? shortDay(m.d) : "", m.desc].filter(Boolean).join(" · ");
+  const n = spreadOf(m);
+  const sub = [m.conto, withDate ? shortDay(m.d) : "", n > 1 ? "su " + n + " mesi" : "", cleanDesc(m.desc)].filter(Boolean).join(" · ");
   return `<div class="mv"><span class="badge ${inc ? "in" : ""}" aria-hidden="true">${esc((m.tip || "?").slice(0, 2))}</span>
     <div class="t"><b>${esc(isTr(m) ? "Trasferimento" : m.tip)}${catDot(m)}${pendTag(m)}</b><span>${esc(sub)}</span></div>
     <span class="a ${inc && !isTr(m) ? "pos" : ""}">${inc ? "+" : "−"}${eur(m.imp)}</span></div>`;
@@ -425,10 +436,12 @@ function hbars(list, color, emptyMsg) {
 function vCharts() {
   const now = monthStart(new Date());
   const months = [5, 4, 3, 2, 1, 0].map(i => addMonths(now, -i));
-  const all = months.map(m => ({ m, ...stats(m) }));
+  const all = months.map(m => ({ m, ...stats(m, true) }));
   const avg = all.reduce((a, s) => a + s.usc, 0) / all.length;
+  // Si può andare avanti fino all'ultimo mese coperto da una spesa divisa su più mesi.
+  const last = S.mov.reduce((a, m) => { const n = m.tipo === "Spesa" ? spreadOf(m) : 1; const e = addMonths(monthStart(m.d), n - 1); return e > a ? e : a; }, now);
   // Un solo mese scelto per tutta la schermata: si cambia con le frecce o toccando una colonna del grafico.
-  const sel = S.chartMonth, st = stats(sel), name = MESI[sel.getMonth()];
+  const sel = S.chartMonth, st = stats(sel, true), name = MESI[sel.getMonth()];
   const pick = months.findIndex(m => sameMonth(m, sel));
   return `
   <div class="top"><div class="stack"><span class="eyebrow">${MESI[months[0].getMonth()]} – ${MESI[now.getMonth()]} ${now.getFullYear()}</span><h1 class="h1">Grafici</h1></div></div>
@@ -441,7 +454,7 @@ function vCharts() {
   <div class="monthbar">
     <button class="round-btn" id="prevC" aria-label="Mese precedente">${ICON.prev}</button>
     <span class="label">${name} ${sel.getFullYear()}</span>
-    <button class="round-btn" id="nextC" aria-label="Mese successivo" ${sel >= now ? "disabled" : ""}>${ICON.next}</button>
+    <button class="round-btn" id="nextC" aria-label="Mese successivo" ${sel >= last ? "disabled" : ""}>${ICON.next}</button>
   </div>
   <section class="card">
     <div class="row"><span class="eyebrow">Spese per tipologia</span><b style="font-weight:600">${eur(st.usc)}</b></div>
@@ -451,7 +464,7 @@ function vCharts() {
     <div class="row"><span class="eyebrow">Entrate per tipologia</span><b style="font-weight:600">${eur(st.ent)}</b></div>
     ${hbars(st.byEnt, "--s1", "Nessuna entrata a " + name + ".")}
   </section>
-  <span class="sub">Trasferimenti tra conti esclusi.</span>`;
+  <span class="sub">Trasferimenti tra conti esclusi. Le spese che coprono più mesi sono divise tra quei mesi.</span>`;
 }
 function nextPac() {
   const t = new Date(); t.setHours(0, 0, 0, 0);
@@ -571,10 +584,10 @@ function toast(msg, action) {
 }
 
 /* ---------- nuovo movimento ---------- */
-const A = { tipo: "Spesa", tip: "", cat: "Bisogno", conto: "", da: "", a: "" };
+const A = { tipo: "Spesa", tip: "", cat: "Bisogno", conto: "", da: "", a: "", mesi: "1" };
 function openAdd(draft) {
   const last = store.get("mc-last") || {};
-  Object.assign(A, { tipo: "Spesa", tip: "", cat: "Bisogno", conto: last.Spesa || "", da: last.da || "", a: last.a || "" }, draft ? draft.A : {});
+  Object.assign(A, { tipo: "Spesa", tip: "", cat: "Bisogno", conto: last.Spesa || "", da: last.da || "", a: last.a || "", mesi: "1" }, draft ? draft.A : {});
   $("#overlay").innerHTML = `<div class="scrim" id="scrim"></div>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="addT"><div class="sheet-in">
     <div class="grab" aria-hidden="true"></div>
@@ -609,6 +622,7 @@ function fields() {
     h += `<div class="field"><span class="lab">Tipologia</span>${chips(S.set.spesa, A.tip, "tip")}</div>`;
     h += `<div class="field"><span class="lab">Bisogno o desiderio?</span><div class="seg two">${S.set.categorie.slice(0, 2).map((c, i) => `<button type="button" data-k="cat" data-v="${esc(c)}" aria-pressed="${A.cat === c}"><i class="sw" style="width:9px;height:9px;background:var(${i ? "--s2" : "--s1"})"></i>${esc(c)}</button>`).join("")}</div></div>`;
     h += `<div class="field"><span class="lab">Pagato con</span>${chips(conti, A.conto, "conto")}</div>`;
+    h += `<div class="field"><span class="lab">Quanti mesi copre? (solo per i grafici)</span><div class="seg five">${["1", "2", "3", "6", "12"].map(n => `<button type="button" data-k="mesi" data-v="${n}" aria-pressed="${A.mesi === n}">${n}</button>`).join("")}</div></div>`;
   } else if (A.tipo === "Entrata") {
     h += `<div class="field"><span class="lab">Da chi</span>${chips(S.set.entrata, A.tip, "tip")}</div>`;
     h += `<div class="field"><span class="lab">Arrivato su</span>${chips(conti, A.conto, "conto")}</div>`;
@@ -635,7 +649,8 @@ async function saveAdd() {
   } else {
     if (!A.tip) { err.textContent = A.tipo === "Spesa" ? "Scegli una tipologia." : "Scegli da chi arriva."; return; }
     if (!A.conto) { err.textContent = "Scegli il conto."; return; }
-    rows = [[ds, A.tipo, A.tip, imp, A.tipo === "Spesa" ? A.cat : "", A.conto, desc]];
+    const mesi = A.tipo === "Spesa" && +A.mesi > 1 ? " [" + A.mesi + " mesi]" : "";
+    rows = [[ds, A.tipo, A.tip, imp, A.tipo === "Spesa" ? A.cat : "", A.conto, (desc + mesi).trim()]];
   }
   const last = store.get("mc-last") || {};
   if (A.tipo === "Trasferimento") { last.da = A.da; last.a = A.a; } else last[A.tipo] = A.conto;
