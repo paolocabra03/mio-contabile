@@ -342,7 +342,12 @@ function changeSheet() {
 }
 function vHome() {
   const now = new Date();
-  const tot = S.conti.reduce((a, c) => a + c.saldo, 0);
+  // Il conto investimenti (ETF) non entra nel patrimonio: è mostrato a parte, al valore di mercato se disponibile.
+  const inv = S.set.contoInv;
+  const liquid = S.conti.filter(c => c.nome !== inv);
+  const invConto = S.conti.find(c => c.nome === inv);
+  const invVal = S.set.etf.some(e => e.valore != null) ? S.set.etf.reduce((a, e) => a + (e.valore || 0), 0) : invConto ? invConto.saldo : null;
+  const tot = liquid.reduce((a, c) => a + c.saldo, 0);
   const st = stats(now);
   const spT = st.bis + st.des, pb = spT ? st.bis / spT * 100 : 0;
   const recent = byDateDesc(pairTransfers(byDateDesc(S.mov.concat(pendingMov())).slice(0, 12))).slice(0, 4);
@@ -356,10 +361,13 @@ function vHome() {
   ${pendingBanner()}
   <section class="hero" aria-label="Patrimonio">
     <div class="stack"><span class="eyebrow">Patrimonio</span>
-      <span class="big">${S.conti.length ? eur(tot) : "—"}</span>
-      <span class="sub">su ${S.conti.length} conti${time ? " · aggiornato alle " + time : ""}</span></div>
-    <div class="tiles">${S.conti.slice().sort((a, b) => b.saldo - a.saldo).map(c => `<div class="tile"><span>${esc(c.nome)}</span><b>${eur(c.saldo)}</b></div>`).join("")}</div>
+      <span class="big">${liquid.length ? eur(tot) : "—"}</span>
+      <span class="sub">su ${liquid.length} conti${invVal != null ? ", ETF esclusi" : ""}${time ? " · aggiornato alle " + time : ""}</span></div>
+    <div class="tiles">${liquid.slice().sort((a, b) => b.saldo - a.saldo).map(c => `<div class="tile"><span>${esc(c.nome)}</span><b>${eur(c.saldo)}</b></div>`).join("")}</div>
   </section>
+  ${invVal != null ? `<button class="card" data-goto="pac" style="flex-direction:row;justify-content:space-between;align-items:center;padding:12px 16px;text-align:left;cursor:pointer;font:inherit;color:inherit">
+    <span class="stack"><span class="eyebrow">Investimenti · non toccare</span><span class="sub">ETF, fuori dal patrimonio</span></span>
+    <b style="font-size:17px;font-weight:600">${eur(invVal)}</b></button>` : ""}
   <section class="card">
     <div class="row"><span class="eyebrow">Questo mese</span><span class="sub" style="font-size:12px">trasferimenti esclusi</span></div>
     <div class="trio">
