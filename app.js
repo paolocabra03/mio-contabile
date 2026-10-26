@@ -151,6 +151,10 @@ function apply({ mov, conti, imp, pac }) {
     if (parseInt(imp[5]?.[7], 10)) S.set.giorno = parseInt(imp[5][7], 10);
     if (imp[6]?.[7]) S.set.contoDa = imp[6][7];
     if (imp[7]?.[7]) S.set.contoInv = imp[7][7];
+    // Righe 9 e 10 di Impostazioni: quote possedute (le scrivi tu) e prezzo per quota (formula Google Finance).
+    const q = imp[8]?.[7], pr = imp[9]?.[7];
+    S.set.quote = q === undefined || q === "" ? null : num(q);
+    S.set.prezzo = pr === undefined || pr === "" || typeof pr === "string" && pr.startsWith("#") ? null : num(pr);
   }
   if (!S.set.conti.length) S.set.conti = S.conti.map(c => c.nome);
   S.pac = pac.map(r => ({ d: toDate(r[0]), etf: r[1] || "", imp: num(r[2]), quote: r[3] === "" || r[3] === undefined ? null : num(r[3]) })).filter(p => p.d && p.imp);
@@ -474,14 +478,16 @@ function vPac() {
       <div class="row"><span class="nm">${esc(e.nome)}</span><b style="white-space:nowrap">${eur0(e.mensile)}/mese</b></div>
       <div class="row sub"><span>${esc(e.isin || "")}${e.isin ? " · " : ""}versato ${eur(v)}</span><span>${plan ? Math.round(e.mensile / plan * 100) : 0}%</span></div>
       ${e.valore != null ? `<div class="row sub"><span>valore ${eur(e.valore)}</span><span class="${e.valore - v >= 0 ? "pos" : "neg"}">${e.valore - v >= 0 ? "+" : ""}${eur(e.valore - v)}</span></div>` : ""}
+      ${i === 0 && S.set.quote != null ? `<div class="row sub"><span>${S.set.quote.toLocaleString("it-IT", { maximumFractionDigits: 6 })} quote${S.set.prezzo != null ? " · " + eur(S.set.prezzo) + " a quota (Google Finance)" : ""}</span></div>` : ""}
     </div>`; }).join("") || `<span class="empty">Aggiungi gli ETF nel foglio Impostazioni.</span>`}
     ${etf.length ? `<div class="split">${etf.map((e, i) => `<i style="width:${plan ? e.mensile / plan * 100 : 0}%;background:var(${colors[i] || "--muted"})"></i>`).join("")}</div>
     <div class="legend">${etf.map((e, i) => `<span><i class="sw" style="background:var(${colors[i] || "--muted"})"></i>${labels[i] || esc(e.nome)}</span>`).join("")}</div>` : ""}
-    <button class="btn ghost" id="toggleVal">${S.valForm ? "Chiudi" : "Aggiorna valore attuale"}</button>
+    <button class="btn ghost" id="toggleVal">${S.valForm ? "Chiudi" : "Aggiorna quote possedute"}</button>
     ${S.valForm ? `<form id="valForm" class="stack" style="gap:12px">
-      ${etf.map((e, i) => `<div class="field"><label for="val${i}">${esc(e.nome)}: valore oggi</label><input class="inp" id="val${i}" inputmode="decimal" placeholder="es. 312,40" value="${e.valore != null ? fmt2(e.valore) : ""}"></div>`).join("")}
+      <div class="field"><label for="quoteIn">Quote totali che vedi su ${esc(S.set.contoDa || "il broker")}</label><input class="inp" id="quoteIn" inputmode="decimal" placeholder="es. 1,164669" value="${S.set.quote != null ? S.set.quote.toLocaleString("it-IT", { maximumFractionDigits: 6 }) : ""}"></div>
+      <span class="sub" style="font-size:12.5px">Il valore si calcola da solo: quote × prezzo di oggi.</span>
       <span class="err" id="valErr" role="alert"></span>
-      <button class="btn" type="submit" id="valSave">Salva valori</button></form>` : ""}
+      <button class="btn" type="submit" id="valSave">Salva quote</button></form>` : ""}
   </section>
   <section class="card">
     <div class="row"><span class="eyebrow">Versamenti</span><span class="sub">${S.pac.length} registrati</span></div>
@@ -684,14 +690,17 @@ function queueToast() {
 async function saveVal(ev) {
   ev.preventDefault();
   const err = $("#valErr"); err.textContent = "";
-  const today = sheetDate(new Date());
-  const vals = S.set.etf.map((e, i) => { const v = parseInputAmount($("#val" + i).value); return isNaN(v) ? ["", ""] : [v, today]; });
+  // Le quote hanno fino a 6 decimali: niente arrotondamento ai centesimi.
+  let t = $("#quoteIn").value.trim().replace(/\s/g, "");
+  if (t.includes(",")) t = t.replace(/\./g, "").replace(",", ".");
+  const q = parseFloat(t);
+  if (!(q > 0)) { err.textContent = "Scrivi il numero di quote, per esempio 1,164669."; return; }
   const btn = $("#valSave"); btn.disabled = true; btn.textContent = "Salvo…";
   try {
-    await api("/values/" + encodeURIComponent("Impostazioni!I2:J" + (1 + vals.length)) + "?valueInputOption=USER_ENTERED", { method: "PUT", body: JSON.stringify({ values: vals }) });
-    S.valForm = false; toast("Valori aggiornati"); loadAll();
+    await api("/values/" + encodeURIComponent("Impostazioni!H9") + "?valueInputOption=RAW", { method: "PUT", body: JSON.stringify({ values: [[q]] }) });
+    S.valForm = false; toast("Quote aggiornate"); loadAll();
   } catch (e) {
-    btn.disabled = false; btn.textContent = "Salva valori";
+    btn.disabled = false; btn.textContent = "Salva quote";
     err.textContent = e instanceof AuthError ? "L'accesso a Google è scaduto: tocca aggiorna nella Home e riprova." : "Non ho potuto salvare: " + e.message;
   }
 }
