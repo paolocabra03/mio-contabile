@@ -57,7 +57,7 @@ const S = {
   mov: [], conti: [], pac: [],
   set: { spesa: [], entrata: [], conti: [], categorie: ["Bisogno", "Desiderio"], etf: [], giorno: 15, contoDa: "", contoInv: "" },
   movMonth: monthStart(new Date()), movFilter: "tutti", movQuery: "",
-  chartPick: { io: 5, nw: 5 },
+  chartMonth: monthStart(new Date()),
   pacForm: false, valForm: false,
 };
 
@@ -225,8 +225,8 @@ function stats(month) {
   const usc = sp.reduce((a, m) => a + m.imp, 0);
   const bis = sp.filter(m => m.cat === "Bisogno").reduce((a, m) => a + m.imp, 0);
   const des = sp.filter(m => m.cat === "Desiderio").reduce((a, m) => a + m.imp, 0);
-  const by = {}; sp.forEach(m => by[m.tip] = (by[m.tip] || 0) + m.imp);
-  return { ent, usc, net: ent - usc, bis, des, byTip: Object.entries(by).sort((a, b) => b[1] - a[1]) };
+  const group = list => { const by = {}; list.forEach(m => by[m.tip] = (by[m.tip] || 0) + m.imp); return Object.entries(by).sort((a, b) => b[1] - a[1]); };
+  return { ent, usc, net: ent - usc, bis, des, byTip: group(sp), byEnt: group(ms.filter(m => m.tipo === "Entrata")) };
 }
 // Un trasferimento è salvato come due righe (uscita dal conto A, entrata sul conto B): in lista le mostro come una.
 function pairTransfers(list) {
@@ -342,11 +342,9 @@ function changeSheet() {
 }
 function vHome() {
   const now = new Date();
-  // Il conto investimenti (ETF) non entra nel patrimonio: è mostrato a parte, al valore di mercato se disponibile.
+  // Il conto investimenti (ETF) non entra nel patrimonio e non compare in Home: si vede nella schermata PAC.
   const inv = S.set.contoInv;
   const liquid = S.conti.filter(c => c.nome !== inv);
-  const invConto = S.conti.find(c => c.nome === inv);
-  const invVal = S.set.etf.some(e => e.valore != null) ? S.set.etf.reduce((a, e) => a + (e.valore || 0), 0) : invConto ? invConto.saldo : null;
   const tot = liquid.reduce((a, c) => a + c.saldo, 0);
   const st = stats(now);
   const spT = st.bis + st.des, pb = spT ? st.bis / spT * 100 : 0;
@@ -362,12 +360,9 @@ function vHome() {
   <section class="hero" aria-label="Patrimonio">
     <div class="stack"><span class="eyebrow">Patrimonio</span>
       <span class="big">${liquid.length ? eur(tot) : "—"}</span>
-      <span class="sub">su ${liquid.length} conti${invVal != null ? ", ETF esclusi" : ""}${time ? " · aggiornato alle " + time : ""}</span></div>
+      <span class="sub">su ${liquid.length} conti${time ? " · aggiornato alle " + time : ""}</span></div>
     <div class="tiles">${liquid.slice().sort((a, b) => b.saldo - a.saldo).map(c => `<div class="tile"><span>${esc(c.nome)}</span><b>${eur(c.saldo)}</b></div>`).join("")}</div>
   </section>
-  ${invVal != null ? `<button class="card" data-goto="pac" style="flex-direction:row;justify-content:space-between;align-items:center;padding:12px 16px;text-align:left;cursor:pointer;font:inherit;color:inherit">
-    <span class="stack"><span class="eyebrow">Investimenti · non toccare</span><span class="sub">ETF, fuori dal patrimonio</span></span>
-    <b style="font-size:17px;font-weight:600">${eur(invVal)}</b></button>` : ""}
   <section class="card">
     <div class="row"><span class="eyebrow">Questo mese</span><span class="sub" style="font-size:12px">trasferimenti esclusi</span></div>
     <div class="trio">
@@ -406,50 +401,51 @@ function vMov() {
   <section class="card" style="padding-top:6px;padding-bottom:6px;gap:0">${grouped(items)}</section>
   <span class="sub">Per correggere o eliminare un movimento modificalo nel foglio Google, poi tocca aggiorna nella Home.</span>`;
 }
-function barsChart(id, rows, kind) {
-  const max = (() => { const v = Math.max(1, ...rows.map(r => kind === "io" ? Math.max(r.a, r.b) : r.a + r.b)); const p = Math.pow(10, Math.floor(Math.log10(v))); const n = v / p; return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 4 ? 4 : n <= 5 ? 5 : 10) * p; })();
-  const H = 110, pick = S.chartPick[id];
+function barsChart(rows, pick) {
+  const max = (() => { const v = Math.max(1, ...rows.map(r => Math.max(r.a, r.b))); const p = Math.pow(10, Math.floor(Math.log10(v))); const n = v / p; return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 4 ? 4 : n <= 5 ? 5 : 10) * p; })();
+  const H = 110;
   const cols = rows.map((r, i) => {
     const ha = r.a / max * H, hb = r.b / max * H;
-    const inner = kind === "io"
-      ? `<i class="bar" style="width:12px;height:${ha.toFixed(1)}px;background:var(--s1)"></i><i class="bar" style="width:12px;height:${hb.toFixed(1)}px;background:var(--s2)"></i>`
-      : `${hb > 0 ? `<i class="bar" style="width:22px;height:${hb.toFixed(1)}px;background:var(--s2)"></i>` : ""}${ha > 0 ? `<i style="display:block;width:22px;height:${ha.toFixed(1)}px;background:var(--s1);${hb > 0 ? "" : "border-radius:4px 4px 0 0"}"></i>` : ""}`;
-    return `<button class="col ${kind === "io" ? "" : "stack"}" data-chart="${id}" data-i="${i}" aria-pressed="${i === pick}" aria-label="${MESI[r.m.getMonth()]}">${inner}</button>`;
+    return `<button class="col" data-cm="${isoDate(r.m)}" aria-pressed="${i === pick}" aria-label="${MESI[r.m.getMonth()]}"><i class="bar" style="width:12px;height:${ha.toFixed(1)}px;background:var(--s1)"></i><i class="bar" style="width:12px;height:${hb.toFixed(1)}px;background:var(--s2)"></i></button>`;
   }).join("");
-  const r = rows[pick];
-  const readout = kind === "io"
-    ? `<b style="text-transform:capitalize">${MESI[r.m.getMonth()]}</b>: entrate <b>${eur(r.a)}</b> · uscite <b>${eur(r.b)}</b>`
-    : `<b style="text-transform:capitalize">${MESI[r.m.getMonth()]}</b>: bisogno <b>${eur(r.a)}</b> · desiderio <b>${eur(r.b)}</b>`;
   return `<div class="chart"><div class="yax"><span>${axisK(max)}</span><span>${axisK(max / 2)}</span><span>0</span></div>
     <div class="plot"><span class="g" style="top:0"></span><span class="g" style="top:${H / 2}px"></span><span class="base"></span>${cols}</div></div>
-    <div class="xax">${rows.map((x, i) => `<span class="${i === pick ? "on" : ""}">${MESI_B[x.m.getMonth()]}</span>`).join("")}</div>
-    <div class="readout">${readout}</div>`;
+    <div class="xax">${rows.map((x, i) => `<span class="${i === pick ? "on" : ""}">${MESI_B[x.m.getMonth()]}</span>`).join("")}</div>`;
+}
+function hbars(list, color, emptyMsg) {
+  const max = list[0]?.[1] || 1;
+  return list.length ? list.map(([k, v]) => `<div class="hbar"><span class="nm">${esc(k)}</span><span class="tr"><i style="width:${Math.max(2, v / max * 100)}%;background:var(${color})"></i></span><span>${eur(v)}</span></div>`).join("") : `<span class="empty">${emptyMsg}</span>`;
 }
 function vCharts() {
   const now = monthStart(new Date());
   const months = [5, 4, 3, 2, 1, 0].map(i => addMonths(now, -i));
   const all = months.map(m => ({ m, ...stats(m) }));
   const avg = all.reduce((a, s) => a + s.usc, 0) / all.length;
-  const cur = all[5];
-  const desPct = cur.bis + cur.des ? Math.round(cur.des / (cur.bis + cur.des) * 100) : 0;
-  const maxT = cur.byTip[0]?.[1] || 1;
+  // Un solo mese scelto per tutta la schermata: si cambia con le frecce o toccando una colonna del grafico.
+  const sel = S.chartMonth, st = stats(sel), name = MESI[sel.getMonth()];
+  const pick = months.findIndex(m => sameMonth(m, sel));
   return `
   <div class="top"><div class="stack"><span class="eyebrow">${MESI[months[0].getMonth()]} – ${MESI[now.getMonth()]} ${now.getFullYear()}</span><h1 class="h1">Grafici</h1></div></div>
   ${banner()}
   <section class="card">
     <div class="row"><span class="eyebrow">Entrate e uscite</span><span class="sub">uscite medie ${eur0(avg)}</span></div>
-    ${barsChart("io", all.map(s => ({ m: s.m, a: s.ent, b: s.usc })), "io")}
+    ${barsChart(all.map(s => ({ m: s.m, a: s.ent, b: s.usc })), pick)}
     <div class="legend"><span><i class="sw" style="background:var(--s1)"></i>Entrate</span><span><i class="sw" style="background:var(--s2)"></i>Uscite</span></div>
   </section>
+  <div class="monthbar">
+    <button class="round-btn" id="prevC" aria-label="Mese precedente">${ICON.prev}</button>
+    <span class="label">${name} ${sel.getFullYear()}</span>
+    <button class="round-btn" id="nextC" aria-label="Mese successivo" ${sel >= now ? "disabled" : ""}>${ICON.next}</button>
+  </div>
   <section class="card">
-    <div class="row"><span class="eyebrow">Bisogno e desiderio</span><span class="sub">${MESI[now.getMonth()]} ${desPct}% desiderio</span></div>
-    ${barsChart("nw", all.map(s => ({ m: s.m, a: s.bis, b: s.des })), "nw")}
-    <div class="legend"><span><i class="sw" style="background:var(--s1)"></i>Bisogno</span><span><i class="sw" style="background:var(--s2)"></i>Desiderio</span></div>
+    <div class="row"><span class="eyebrow">Spese per tipologia</span><b style="font-weight:600">${eur(st.usc)}</b></div>
+    ${hbars(st.byTip, "--s2", "Nessuna spesa a " + name + ".")}
   </section>
   <section class="card">
-    <span class="eyebrow">Spese di ${MESI[now.getMonth()]} per tipologia</span>
-    ${cur.byTip.length ? cur.byTip.map(([k, v]) => `<div class="hbar"><span class="nm">${esc(k)}</span><span class="tr"><i style="width:${Math.max(2, v / maxT * 100)}%"></i></span><span>${eur(v)}</span></div>`).join("") : `<span class="empty">Nessuna spesa questo mese.</span>`}
-  </section>`;
+    <div class="row"><span class="eyebrow">Entrate per tipologia</span><b style="font-weight:600">${eur(st.ent)}</b></div>
+    ${hbars(st.byEnt, "--s1", "Nessuna entrata a " + name + ".")}
+  </section>
+  <span class="sub">Trasferimenti tra conti esclusi.</span>`;
 }
 function nextPac() {
   const t = new Date(); t.setHours(0, 0, 0, 0);
@@ -544,7 +540,9 @@ function bind() {
   on("#q", "input", e => { S.movQuery = e.target.value; const pos = e.target.selectionStart; render(); const n = $("#q"); n.focus(); try { n.setSelectionRange(pos, pos); } catch {} });
   $$("[data-filter]").forEach(b => b.addEventListener("click", () => { S.movFilter = b.dataset.filter; render(); }));
   $$("[data-goto]").forEach(b => b.addEventListener("click", () => go(b.dataset.goto)));
-  $$("[data-chart]").forEach(b => b.addEventListener("click", () => { S.chartPick[b.dataset.chart] = +b.dataset.i; render(); }));
+  $$("[data-cm]").forEach(b => b.addEventListener("click", () => { S.chartMonth = fromIso(b.dataset.cm); render(); }));
+  on("#prevC", "click", () => { S.chartMonth = addMonths(S.chartMonth, -1); render(); });
+  on("#nextC", "click", () => { S.chartMonth = addMonths(S.chartMonth, 1); render(); });
   on("#togglePac", "click", () => { S.pacForm = !S.pacForm; render(); });
   on("#toggleVal", "click", () => { S.valForm = !S.valForm; render(); });
   on("#pacForm", "submit", savePac);

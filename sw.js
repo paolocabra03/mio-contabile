@@ -1,6 +1,6 @@
 // Tiene in cache i file dell'app, così si apre anche senza rete.
 // I dati del foglio non passano di qui: arrivano sempre da Google.
-const VERSION = "mc-v5";
+const VERSION = "mc-v6";
 const SHELL = [
   "./", "./index.html", "./app.js", "./config.js", "./manifest.webmanifest",
   "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/favicon.png"
