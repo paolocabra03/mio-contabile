@@ -448,7 +448,7 @@ function trendHtml(names, tot) {
   TREND = { pts, xy, from, W, H };
   return `<div class="trend">
     <div class="cap" id="cap"><span class="sub">${cap}</span></div>
-    <div class="plot" id="plot">
+    <div class="scrub" id="plot">
     <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Andamento del patrimonio, ${per[1]}${hide ? ". Cifre nascoste" : ""}. Scorri il dito per leggere un giorno"><path d="${line} L${W} ${H} L0 ${H}Z" fill="rgba(255,255,255,.14)"/><path d="${line}" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="3.5" fill="#fff"/><line id="trLine" y1="0" y2="${H}" stroke="#fff" stroke-opacity=".55" stroke-width="1" visibility="hidden"/><circle id="trDot" r="5.5" fill="#fff" stroke="var(--hero)" stroke-width="2.5" visibility="hidden"/></svg></div>
     <div class="per" role="group" aria-label="Periodo">${PERIODI.map(p => `<button type="button" data-per="${p[0]}" aria-pressed="${p === per}">${p[1]}</button>`).join("")}</div>
   </div>`;
@@ -554,9 +554,10 @@ function barsChart(rows, pick) {
     const ha = r.a / max * H, hb = r.b / max * H;
     return `<button class="col" data-cm="${isoDate(r.m)}" aria-pressed="${i === pick}" aria-label="${MESI[r.m.getMonth()]}: entrate ${M(r.a)}, uscite ${M(r.b)}"><i class="bar" style="width:12px;height:${ha.toFixed(1)}px;background:var(--in)"></i><i class="bar" style="width:12px;height:${hb.toFixed(1)}px;background:var(--out)"></i></button>`;
   }).join("");
-  return `<div class="chart"><div class="yax"><span>${isHidden() ? "" : axisK(max)}</span><span>${isHidden() ? "" : axisK(max / 2)}</span><span>${isHidden() ? "" : "0"}</span></div>
+  const nasc = isHidden();
+  return `<div class="chart">${nasc ? "" : `<div class="yax"><span>${axisK(max)}</span><span>${axisK(max / 2)}</span><span>0</span></div>`}
     <div class="plot"><span class="g" style="top:0"></span><span class="g" style="top:${H / 2}px"></span><span class="base"></span>${cols}</div></div>
-    <div class="xax">${rows.map((x, i) => `<span class="${i === pick ? "on" : ""}">${MESI_B[x.m.getMonth()]}</span>`).join("")}</div>`;
+    <div class="xax ${nasc ? "nolab" : ""}">${rows.map((x, i) => `<span class="${i === pick ? "on" : ""}">${MESI_B[x.m.getMonth()]}</span>`).join("")}</div>`;
 }
 function hbars(list, color, emptyMsg) {
   const max = list[0]?.[1] || 1;
@@ -673,6 +674,7 @@ function vPac() {
       <div class="stack" style="gap:10px">
         <button class="btn ghost" id="changeSheetAsk" data-ask="Tocca ancora per cambiare foglio">Cambia foglio</button>
         <button class="btn danger" id="logoutAsk" data-ask="Tocca ancora per uscire">Esci dall'account Google</button>
+        <span class="sub" id="ver"></span>
       </div>
     </details>
   </section>`;
@@ -706,6 +708,7 @@ function bind() {
   on("#q", "input", e => { S.movQuery = e.target.value; const pos = e.target.selectionStart; render(); const n = $("#q"); n.focus(); try { n.setSelectionRange(pos, pos); } catch {} });
   $$("[data-filter]").forEach(b => b.addEventListener("click", () => { S.movFilter = b.dataset.filter; render(); }));
   bindScrub();
+  if (window.caches && $("#ver")) caches.keys().then(k => { const v = k.filter(x => /^mc-v\d+$/.test(x)).sort((a, b) => +b.slice(4) - +a.slice(4))[0]; if (v && $("#ver")) $("#ver").textContent = "Versione dell'app: " + v.slice(4); }).catch(() => {});
   $$("[data-per]").forEach(b => b.addEventListener("click", () => { store.set("mc-per", b.dataset.per); render(); }));
   $$("[data-goto]").forEach(b => b.addEventListener("click", () => go(b.dataset.goto)));
   $$("[data-view]").forEach(b => b.addEventListener("click", () => openDetail(VIEW.get(b.dataset.view))));
@@ -824,7 +827,9 @@ function chips(list, cur, key, extra = "") {
 function fields() {
   const tutti = S.set.conti.length ? S.set.conti : S.conti.map(c => c.nome);
   // ETF e il conto del broker (Trade Republic) si usano solo nei trasferimenti: non ci si paga né ci si riceve uno stipendio.
-  const conti = A.tipo === "Trasferimento" ? tutti : tutti.filter(c => (c !== S.set.contoInv && c !== S.set.contoDa) || c === A.conto);
+  const fuori = c => c === S.set.contoInv || c === S.set.contoDa;
+  if (A.tipo !== "Trasferimento" && !EDIT && fuori(A.conto)) A.conto = ""; // l'ultimo conto usato può essere uno di quelli esclusi
+  const conti = A.tipo === "Trasferimento" ? tutti : tutti.filter(c => !fuori(c) || (EDIT && c === A.conto));
   let h = "", h2 = "", mesi = "";
   if (A.tipo === "Spesa") {
     const tl = recentFirst(S.set.spesa, "Spesa"), lungo = tl.length > 6;
