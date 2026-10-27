@@ -19,6 +19,10 @@ const fmt2 = n => { const [i, d] = Math.abs(n).toFixed(2).split("."); return gro
 const eur = n => (n < 0 ? "−" : "") + "€ " + fmt2(n);
 const eur0 = n => (n < 0 ? "−" : "") + "€ " + group(String(Math.abs(Math.round(n))));
 const eurK = n => n >= 1000 ? "€ " + Math.round(n / 1000).toLocaleString("it-IT") + "k" : eur0(n);
+const isHidden = () => !store.get("mc-show");
+const M = n => isHidden() ? "€ ••••" : eur(n);
+const M0 = n => isHidden() ? "€ ••••" : eur0(n);
+const MK = n => isHidden() ? "€ ••••" : eurK(n);
 const axisK = v => v >= 1000 ? (v / 1000).toLocaleString("it-IT", { maximumFractionDigits: 1 }) + "k" : String(Math.round(v));
 const store = {
   get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
@@ -238,7 +242,7 @@ function pacWarn() {
   const plan = S.set.etf.reduce((a, e) => a + e.mensile, 0), da = S.set.contoDa;
   const c = S.conti.find(x => x.nome === da);
   if (!plan || !c || c.saldo >= plan) return "";
-  const np = nextPac(), hide = !!store.get("mc-hide");
+  const np = nextPac(), hide = isHidden();
   const msg = hide ? `Il saldo non basta per il versamento del ${np.d.getDate()} ${MESI[np.d.getMonth()]}.`
     : `Ci sono ${eur(c.saldo)}, ma il versamento del ${np.d.getDate()} ${MESI[np.d.getMonth()]} ne preleva ${eur(plan)}. Aggiungi almeno ${eur(plan - c.saldo)}.`;
   return `<div class="card" role="alert" style="gap:6px;border-color:var(--s2)"><b style="font-weight:600">Ricarica ${esc(da)}</b><span class="sub">${msg}</span></div>`;
@@ -315,14 +319,14 @@ function rowHtml(m, withDate) {
   if (m.kind === "tr") {
     return `<button class="mv" data-view="${v}"><span class="badge">${ICON.swap}</span>
       <span class="t"><b>Trasferimento${pendTag(m)}</b><span>${esc(m.da)} → ${esc(m.a)}${m.desc ? " · " + esc(m.desc) : ""}${withDate ? " · " + shortDay(m.d) : ""}</span></span>
-      <span class="a tr">${eur(m.imp)}</span></button>`;
+      <span class="a tr">${M(m.imp)}</span></button>`;
   }
   const inc = m.tipo === "Entrata";
   const n = spreadOf(m);
   const sub = [m.conto, withDate ? shortDay(m.d) : "", n > 1 ? "su " + n + " mesi" : "", cleanDesc(m.desc)].filter(Boolean).join(" · ");
   return `<button class="mv" data-view="${v}"><span class="badge ${inc ? "in" : ""}" aria-hidden="true">${esc((m.tip || "?").slice(0, 2))}</span>
     <span class="t"><b>${esc(isTr(m) ? "Trasferimento" : m.tip)}${catDot(m)}${pendTag(m)}</b><span>${esc(sub)}</span></span>
-    <span class="a ${inc && !isTr(m) ? "pos" : ""}">${inc ? "+" : "−"}${eur(m.imp)}</span></button>`;
+    <span class="a ${inc && !isTr(m) ? "pos" : ""}">${inc ? "+" : "−"}${M(m.imp)}</span></button>`;
 }
 function grouped(items) {
   if (!items.length) return `<div class="empty">Nessun movimento.</div>`;
@@ -404,8 +408,8 @@ function vHome() {
   const recent = byDateDesc(pairTransfers(byDateDesc(S.mov.concat(pendingMov())).slice(0, 12))).slice(0, 4);
   const time = S.loadedAt ? new Date(S.loadedAt).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }) : "";
   // Occhio: nasconde le cifre del patrimonio quando mostri l'app a qualcuno. La scelta resta salvata sul telefono.
-  const hide = !!store.get("mc-hide");
-  const money = n => hide ? "€ ••••" : eur(n);
+  const hide = isHidden();
+  const money = M;
   return `
   <div class="top">
     <div class="stack"><span class="eyebrow">${MESI[now.getMonth()]} ${now.getFullYear()}</span><h1 class="h1">${nome() ? "Ciao " + esc(nome()) : "Ciao"}</h1></div>
@@ -424,12 +428,12 @@ function vHome() {
   <section class="card">
     <div class="row"><span class="eyebrow">Questo mese</span><span class="sub" style="font-size:12px">trasferimenti esclusi</span></div>
     <div class="trio">
-      <div class="stack"><span class="sub">Entrate</span><b>${eur(st.ent)}</b></div>
-      <div class="stack"><span class="sub">Uscite</span><b>${eur(st.usc)}</b></div>
-      <div class="stack"><span class="sub">Netto</span><b class="${st.net >= 0 ? "pos" : "neg"}">${st.net >= 0 ? "+" : ""}${eur(st.net)}</b></div>
+      <div class="stack"><span class="sub">Entrate</span><b>${M(st.ent)}</b></div>
+      <div class="stack"><span class="sub">Uscite</span><b>${M(st.usc)}</b></div>
+      <div class="stack"><span class="sub">Netto</span><b class="${hide ? "" : st.net >= 0 ? "pos" : "neg"}">${hide ? "" : st.net >= 0 ? "+" : ""}${M(st.net)}</b></div>
     </div>
     ${spT ? `<div class="split" role="img" aria-label="Bisogno ${Math.round(pb)}%, desiderio ${Math.round(100 - pb)}%">${st.bis ? `<i style="width:${pb}%;background:var(--s1)"></i>` : ""}${st.des ? `<i style="width:${100 - pb}%;background:var(--s2)"></i>` : ""}</div>
-    <div class="legend"><span><i class="sw" style="background:var(--s1)"></i>Bisogno ${eur0(st.bis)} · ${Math.round(pb)}%</span><span><i class="sw" style="background:var(--s2)"></i>Desiderio ${eur0(st.des)} · ${Math.round(100 - pb)}%</span></div>`
+    <div class="legend"><span><i class="sw" style="background:var(--s1)"></i>Bisogno ${M0(st.bis)} · ${Math.round(pb)}%</span><span><i class="sw" style="background:var(--s2)"></i>Desiderio ${M0(st.des)} · ${Math.round(100 - pb)}%</span></div>`
       : `<span class="empty">Nessuna spesa questo mese. Tocca + per aggiungerne una.</span>`}
   </section>
   <section class="card" style="padding-bottom:8px;gap:4px">
@@ -466,13 +470,13 @@ function barsChart(rows, pick) {
     const ha = r.a / max * H, hb = r.b / max * H;
     return `<button class="col" data-cm="${isoDate(r.m)}" aria-pressed="${i === pick}" aria-label="${MESI[r.m.getMonth()]}"><i class="bar" style="width:12px;height:${ha.toFixed(1)}px;background:var(--s1)"></i><i class="bar" style="width:12px;height:${hb.toFixed(1)}px;background:var(--s2)"></i></button>`;
   }).join("");
-  return `<div class="chart"><div class="yax"><span>${axisK(max)}</span><span>${axisK(max / 2)}</span><span>0</span></div>
+  return `<div class="chart"><div class="yax"><span>${isHidden() ? "" : axisK(max)}</span><span>${isHidden() ? "" : axisK(max / 2)}</span><span>${isHidden() ? "" : "0"}</span></div>
     <div class="plot"><span class="g" style="top:0"></span><span class="g" style="top:${H / 2}px"></span><span class="base"></span>${cols}</div></div>
     <div class="xax">${rows.map((x, i) => `<span class="${i === pick ? "on" : ""}">${MESI_B[x.m.getMonth()]}</span>`).join("")}</div>`;
 }
 function hbars(list, color, emptyMsg) {
   const max = list[0]?.[1] || 1;
-  return list.length ? list.map(([k, v]) => `<div class="hbar"><span class="nm">${esc(k)}</span><span class="tr"><i style="width:${Math.max(2, v / max * 100)}%;background:var(${color})"></i></span><span>${eur(v)}</span></div>`).join("") : `<span class="empty">${emptyMsg}</span>`;
+  return list.length ? list.map(([k, v]) => `<div class="hbar"><span class="nm">${esc(k)}</span><span class="tr"><i style="width:${Math.max(2, v / max * 100)}%;background:var(${color})"></i></span><span>${M(v)}</span></div>`).join("") : `<span class="empty">${emptyMsg}</span>`;
 }
 function vCharts() {
   const now = monthStart(new Date());
@@ -488,7 +492,7 @@ function vCharts() {
   <div class="top"><div class="stack"><span class="eyebrow">${MESI[months[0].getMonth()]} – ${MESI[now.getMonth()]} ${now.getFullYear()}</span><h1 class="h1">Grafici</h1></div></div>
   ${banner()}
   <section class="card">
-    <div class="row"><span class="eyebrow">Entrate e uscite</span><span class="sub">uscite medie ${eur0(avg)}</span></div>
+    <div class="row"><span class="eyebrow">Entrate e uscite</span><span class="sub">uscite medie ${M0(avg)}</span></div>
     ${barsChart(all.map(s => ({ m: s.m, a: s.ent, b: s.usc })), pick)}
     <div class="legend"><span><i class="sw" style="background:var(--s1)"></i>Entrate</span><span><i class="sw" style="background:var(--s2)"></i>Uscite</span></div>
   </section>
@@ -498,11 +502,11 @@ function vCharts() {
     <button class="round-btn" id="nextC" aria-label="Mese successivo" ${sel >= last ? "disabled" : ""}>${ICON.next}</button>
   </div>
   <section class="card">
-    <div class="row"><span class="eyebrow">Spese per tipologia</span><b style="font-weight:600">${eur(st.usc)}</b></div>
+    <div class="row"><span class="eyebrow">Spese per tipologia</span><b style="font-weight:600">${M(st.usc)}</b></div>
     ${hbars(st.byTip, "--s2", "Nessuna spesa a " + name + ".")}
   </section>
   <section class="card">
-    <div class="row"><span class="eyebrow">Entrate per tipologia</span><b style="font-weight:600">${eur(st.ent)}</b></div>
+    <div class="row"><span class="eyebrow">Entrate per tipologia</span><b style="font-weight:600">${M(st.ent)}</b></div>
     ${hbars(st.byEnt, "--s1", "Nessuna entrata a " + name + ".")}
   </section>
   <span class="sub">Trasferimenti tra conti esclusi. Le spese che coprono più mesi sono divise tra quei mesi.</span>`;
@@ -531,19 +535,19 @@ function vPac() {
   <section class="hero" aria-label="Prossimo versamento">
     <div class="stack"><span class="eyebrow">Prossimo versamento</span>
       <span class="big" style="font-size:34px;line-height:1.1">${np.d.getDate()} ${MESI[np.d.getMonth()]}</span>
-      <span class="sub">${np.days === 0 ? "oggi" : np.days === 1 ? "domani" : "tra " + np.days + " giorni"} · ${eur(plan)} da ${esc(S.set.contoDa)}</span></div>
+      <span class="sub">${np.days === 0 ? "oggi" : np.days === 1 ? "domani" : "tra " + np.days + " giorni"} · ${M(plan)} da ${esc(S.set.contoDa)}</span></div>
     <div class="tiles two">
-      <div class="tile"><span>${hasVal ? "Valore attuale" : "Conto " + esc(S.set.contoInv)}</span><b>${hasVal ? eur(totVal) : (bal(S.set.contoInv) != null ? eur(bal(S.set.contoInv)) : "—")}</b></div>
-      <div class="tile"><span>${hasVal ? "Versato" : "Liquidità " + esc(S.set.contoDa)}</span><b>${hasVal ? eur(totV) : (bal(S.set.contoDa) != null ? eur(bal(S.set.contoDa)) : "—")}</b></div>
+      <div class="tile"><span>${hasVal ? "Valore attuale" : "Conto " + esc(S.set.contoInv)}</span><b>${hasVal ? M(totVal) : (bal(S.set.contoInv) != null ? M(bal(S.set.contoInv)) : "—")}</b></div>
+      <div class="tile"><span>${hasVal ? "Versato" : "Liquidità " + esc(S.set.contoDa)}</span><b>${hasVal ? M(totV) : (bal(S.set.contoDa) != null ? M(bal(S.set.contoDa)) : "—")}</b></div>
     </div>
   </section>
   <section class="card">
     <span class="eyebrow">I tuoi ETF</span>
     ${etf.map((e, i) => { const v = vers(e.nome); return `<div class="etf">
-      <div class="row"><span class="nm">${esc(e.nome)}</span><b style="white-space:nowrap">${eur0(e.mensile)}/mese</b></div>
-      <div class="row sub"><span>${esc(e.isin || "")}${e.isin ? " · " : ""}versato ${eur(v)}</span><span>${plan ? Math.round(e.mensile / plan * 100) : 0}%</span></div>
-      ${e.valore != null ? `<div class="row sub"><span>valore ${eur(e.valore)}</span><span class="${e.valore - v >= 0 ? "pos" : "neg"}">${e.valore - v >= 0 ? "+" : ""}${eur(e.valore - v)}</span></div>` : ""}
-      ${i === 0 && S.set.quote != null ? `<div class="row sub"><span>${S.set.quote.toLocaleString("it-IT", { maximumFractionDigits: 6 })} quote${S.set.prezzo != null ? " · " + eur(S.set.prezzo) + " a quota (Google Finance)" : ""}</span></div>` : ""}
+      <div class="row"><span class="nm">${esc(e.nome)}</span><b style="white-space:nowrap">${M0(e.mensile)}/mese</b></div>
+      <div class="row sub"><span>${esc(e.isin || "")}${e.isin ? " · " : ""}versato ${M(v)}</span><span>${plan ? Math.round(e.mensile / plan * 100) : 0}%</span></div>
+      ${e.valore != null ? `<div class="row sub"><span>valore ${M(e.valore)}</span><span class="${e.valore - v >= 0 ? "pos" : "neg"}">${e.valore - v >= 0 ? "+" : ""}${M(e.valore - v)}</span></div>` : ""}
+      ${i === 0 && S.set.quote != null ? `<div class="row sub"><span>${S.set.quote.toLocaleString("it-IT", { maximumFractionDigits: 6 })} quote${S.set.prezzo != null ? " · " + M(S.set.prezzo) + " a quota (Google Finance)" : ""}</span></div>` : ""}
     </div>`; }).join("") || `<span class="empty">Aggiungi gli ETF nel foglio Impostazioni.</span>`}
     ${etf.length ? `<div class="split">${etf.map((e, i) => `<i style="width:${plan ? e.mensile / plan * 100 : 0}%;background:var(${colors[i] || "--muted"})"></i>`).join("")}</div>
     <div class="legend">${etf.map((e, i) => `<span><i class="sw" style="background:var(${colors[i] || "--muted"})"></i>${labels[i] || esc(e.nome)}</span>`).join("")}</div>` : ""}
@@ -558,7 +562,7 @@ function vPac() {
     <div class="row"><span class="eyebrow">Versamenti</span><span class="sub">${S.pac.length} registrati</span></div>
     ${hist.length ? `<div class="list">${hist.map(p => `<div class="mv"><span class="badge in" aria-hidden="true">${esc((p.etf.split(" ")[2] || "ET").slice(0, 2))}</span>
       <div class="t"><b>${esc(p.etf)}</b><span>${p.d.getDate()} ${MESI[p.d.getMonth()]} ${p.d.getFullYear()}${p.quote ? " · " + p.quote.toLocaleString("it-IT", { maximumFractionDigits: 4 }) + " quote" : ""}</span></div>
-      <span class="a">${eur(p.imp)}</span></div>`).join("")}</div>` : `<span class="sub" style="font-size:14px">Il primo arriva il ${np.d.getDate()} ${MESI[np.d.getMonth()]}. Registralo qui quando il broker lo esegue.</span>`}
+      <span class="a">${M(p.imp)}</span></div>`).join("")}</div>` : `<span class="sub" style="font-size:14px">Il primo arriva il ${np.d.getDate()} ${MESI[np.d.getMonth()]}. Registralo qui quando il broker lo esegue.</span>`}
     <button class="btn ghost" id="togglePac">${S.pacForm ? "Chiudi" : "Registra versamento"}</button>
     ${S.pacForm ? `<form id="pacForm" class="stack" style="gap:12px">
       <div class="field"><label for="pacDate">Data</label><input class="inp" type="date" id="pacDate" value="${isoDate(new Date())}"></div>
@@ -571,7 +575,7 @@ function vPac() {
   </section>
   <section class="card">
     <span class="eyebrow">Versato se continui</span>
-    <div class="kv4">${[5, 10, 20, 40].map(y => `<div><span class="sub" style="font-size:12px">${y} anni</span><b>${eurK(plan * 12 * y)}</b></div>`).join("")}</div>
+    <div class="kv4">${[5, 10, 20, 40].map(y => `<div><span class="sub" style="font-size:12px">${y} anni</span><b>${MK(plan * 12 * y)}</b></div>`).join("")}</div>
     <span class="sub" style="font-size:12px">Solo la somma dei versamenti, senza rendimento.</span>
   </section>
   <div class="row" style="justify-content:center;gap:24px">
@@ -601,7 +605,7 @@ function bind() {
   on("#loginBtn", "click", () => login(false));
   on("#retry", "click", () => { S.error = null; loadAll(); });
   on("#refresh", "click", () => loadAll());
-  on("#toggleHide", "click", () => { if (store.get("mc-hide")) store.del("mc-hide"); else store.set("mc-hide", true); render(); });
+  on("#toggleHide", "click", () => { if (store.get("mc-show")) store.del("mc-show"); else store.set("mc-show", true); render(); });
   on("#prevM", "click", () => { S.movMonth = addMonths(S.movMonth, -1); render(); });
   on("#nextM", "click", () => { S.movMonth = addMonths(S.movMonth, 1); render(); });
   on("#q", "input", e => { S.movQuery = e.target.value; const pos = e.target.selectionStart; render(); const n = $("#q"); n.focus(); try { n.setSelectionRange(pos, pos); } catch {} });
