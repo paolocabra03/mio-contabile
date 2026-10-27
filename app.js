@@ -259,7 +259,7 @@ function pairTransfers(list) {
       if (j >= 0) {
         used.add(i); used.add(j);
         const out1 = m.tipo === "Spesa" ? m : list[j], in1 = m.tipo === "Spesa" ? list[j] : m;
-        out.push({ kind: "tr", d: m.d, imp: m.imp, da: out1.conto, a: in1.conto, desc: out1.desc && !/^verso /i.test(out1.desc) ? out1.desc : "", row: Math.max(m.row, list[j].row), pending: m.pending || list[j].pending });
+        out.push({ kind: "tr", d: m.d, imp: m.imp, da: out1.conto, a: in1.conto, desc: out1.desc && !/^verso /i.test(out1.desc) ? out1.desc : "", row: Math.max(m.row, list[j].row), pending: m.pending || list[j].pending, parts: [out1, in1] });
         return;
       }
     }
@@ -282,18 +282,21 @@ const ICON = {
 };
 const catDot = m => m.tipo === "Spesa" && !isTr(m) && m.cat ? `<span class="dot" style="background:var(${m.cat === "Desiderio" ? "--s2" : "--s1"})" aria-label="${esc(m.cat)}"></span>` : "";
 const pendTag = m => m.pending ? `<span class="pend">in attesa</span>` : "";
+// Ogni riga mostrata è un pulsante: toccandola si apre il dettaglio. VIEW ricorda quale movimento c'è dietro.
+const VIEW = [];
 function rowHtml(m, withDate) {
+  const v = VIEW.push(m) - 1;
   if (m.kind === "tr") {
-    return `<div class="mv"><span class="badge">${ICON.swap}</span>
-      <div class="t"><b>Trasferimento${pendTag(m)}</b><span>${esc(m.da)} → ${esc(m.a)}${m.desc ? " · " + esc(m.desc) : ""}${withDate ? " · " + shortDay(m.d) : ""}</span></div>
-      <span class="a tr">${eur(m.imp)}</span></div>`;
+    return `<button class="mv" data-view="${v}"><span class="badge">${ICON.swap}</span>
+      <span class="t"><b>Trasferimento${pendTag(m)}</b><span>${esc(m.da)} → ${esc(m.a)}${m.desc ? " · " + esc(m.desc) : ""}${withDate ? " · " + shortDay(m.d) : ""}</span></span>
+      <span class="a tr">${eur(m.imp)}</span></button>`;
   }
   const inc = m.tipo === "Entrata";
   const n = spreadOf(m);
   const sub = [m.conto, withDate ? shortDay(m.d) : "", n > 1 ? "su " + n + " mesi" : "", cleanDesc(m.desc)].filter(Boolean).join(" · ");
-  return `<div class="mv"><span class="badge ${inc ? "in" : ""}" aria-hidden="true">${esc((m.tip || "?").slice(0, 2))}</span>
-    <div class="t"><b>${esc(isTr(m) ? "Trasferimento" : m.tip)}${catDot(m)}${pendTag(m)}</b><span>${esc(sub)}</span></div>
-    <span class="a ${inc && !isTr(m) ? "pos" : ""}">${inc ? "+" : "−"}${eur(m.imp)}</span></div>`;
+  return `<button class="mv" data-view="${v}"><span class="badge ${inc ? "in" : ""}" aria-hidden="true">${esc((m.tip || "?").slice(0, 2))}</span>
+    <span class="t"><b>${esc(isTr(m) ? "Trasferimento" : m.tip)}${catDot(m)}${pendTag(m)}</b><span>${esc(sub)}</span></span>
+    <span class="a ${inc && !isTr(m) ? "pos" : ""}">${inc ? "+" : "−"}${eur(m.imp)}</span></button>`;
 }
 function grouped(items) {
   if (!items.length) return `<div class="empty">Nessun movimento.</div>`;
@@ -428,7 +431,7 @@ function vMov() {
   <label class="search">${ICON.search}<input id="q" type="search" placeholder="Cerca descrizione, tipologia, conto" value="${esc(S.movQuery)}" aria-label="Cerca movimenti" autocomplete="off"></label>
   <div class="chips">${chip("tutti", "Tutti")}${chip("spese", "Spese")}${chip("entrate", "Entrate")}${chip("trasf", "Trasferimenti")}</div>
   <section class="card" style="padding-top:6px;padding-bottom:6px;gap:0">${grouped(items)}</section>
-  <span class="sub">Per correggere o eliminare un movimento modificalo nel foglio Google, poi tocca aggiorna nella Home.</span>`;
+  <span class="sub">Tocca un movimento per leggerlo tutto, modificarlo o eliminarlo.</span>`;
 }
 function barsChart(rows, pick) {
   const max = (() => { const v = Math.max(1, ...rows.map(r => Math.max(r.a, r.b))); const p = Math.pow(10, Math.floor(Math.log10(v))); const n = v / p; return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 4 ? 4 : n <= 5 ? 5 : 10) * p; })();
@@ -557,6 +560,7 @@ function render() {
   const app = $("#app");
   if (!authed) { $("#nav").hidden = true; app.innerHTML = vWelcome(); bind(); return; }
   $("#nav").hidden = false;
+  VIEW.length = 0;
   $$(".tab").forEach(t => t.setAttribute("aria-current", t.dataset.tab === S.tab ? "page" : "false"));
   app.innerHTML = S.tab === "home" ? vHome() : S.tab === "mov" ? vMov() : S.tab === "charts" ? vCharts() : vPac();
   bind();
@@ -573,6 +577,7 @@ function bind() {
   on("#q", "input", e => { S.movQuery = e.target.value; const pos = e.target.selectionStart; render(); const n = $("#q"); n.focus(); try { n.setSelectionRange(pos, pos); } catch {} });
   $$("[data-filter]").forEach(b => b.addEventListener("click", () => { S.movFilter = b.dataset.filter; render(); }));
   $$("[data-goto]").forEach(b => b.addEventListener("click", () => go(b.dataset.goto)));
+  $$("[data-view]").forEach(b => b.addEventListener("click", () => openDetail(VIEW[+b.dataset.view])));
   $$("[data-cm]").forEach(b => b.addEventListener("click", () => { S.chartMonth = fromIso(b.dataset.cm); render(); }));
   on("#prevC", "click", () => { S.chartMonth = addMonths(S.chartMonth, -1); render(); });
   on("#nextC", "click", () => { S.chartMonth = addMonths(S.chartMonth, 1); render(); });
@@ -601,11 +606,14 @@ const A = { tipo: "Spesa", tip: "", cat: "Bisogno", conto: "", da: "", a: "", me
 function openAdd(draft) {
   const last = store.get("mc-last") || {};
   Object.assign(A, { tipo: "Spesa", tip: "", cat: "Bisogno", conto: last.Spesa || "", da: last.da || "", a: last.a || "", mesi: "1" }, draft ? draft.A : {});
+  EDIT = draft?.edit || null;
+  // In modifica un trasferimento resta trasferimento (sono due righe) e una spesa o entrata resta una riga sola.
+  const tipi = !EDIT ? ["Spesa", "Entrata", "Trasferimento"] : EDIT.kind === "tr" ? [] : ["Spesa", "Entrata"];
   $("#overlay").innerHTML = `<div class="scrim" id="scrim"></div>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="addT"><div class="sheet-in">
     <div class="grab" aria-hidden="true"></div>
-    <div class="row" style="align-items:center"><h2 class="h1" id="addT" style="font-size:22px">Nuovo movimento</h2><button class="link" id="closeAdd" style="font-size:15px">Annulla</button></div>
-    <div class="seg" id="segTipo">${["Spesa", "Entrata", "Trasferimento"].map(t => `<button type="button" data-tipo="${t}" aria-pressed="${A.tipo === t}">${t}</button>`).join("")}</div>
+    <div class="row" style="align-items:center"><h2 class="h1" id="addT" style="font-size:22px">${EDIT ? "Modifica " + (EDIT.kind === "tr" ? "trasferimento" : "movimento") : "Nuovo movimento"}</h2><button class="link" id="closeAdd" style="font-size:15px">Annulla</button></div>
+    ${tipi.length ? `<div class="seg ${tipi.length === 2 ? "two" : ""}" id="segTipo">${tipi.map(t => `<button type="button" data-tipo="${t}" aria-pressed="${A.tipo === t}">${t}</button>`).join("")}</div>` : ""}
     <label class="amount"><span>€</span><input id="amt" inputmode="decimal" placeholder="0,00" autocomplete="off" aria-label="Importo" value="${esc(draft?.amt || "")}"></label>
     <div id="addFields" class="stack" style="gap:16px"></div>
     <div class="pair">
@@ -613,7 +621,7 @@ function openAdd(draft) {
       <div class="field"><label for="addDesc">Descrizione</label><input class="inp" id="addDesc" placeholder="facoltativa" autocomplete="off" value="${esc(draft?.desc || "")}"></div>
     </div>
     <span class="err" id="addErr" role="alert"></span>
-    <button class="btn" id="saveAdd">Salva nel foglio</button>
+    <button class="btn" id="saveAdd">${EDIT ? "Salva modifiche" : "Salva nel foglio"}</button>
   </div></div>`;
   document.body.style.overflow = "hidden";
   $("#scrim").onclick = closeAdd; $("#closeAdd").onclick = closeAdd;
@@ -626,6 +634,8 @@ function openAdd(draft) {
   if (!draft) setTimeout(() => $("#amt")?.focus(), 80);
 }
 function chips(list, cur, key) {
+  // Un valore già nel foglio ma non tra le scelte (es. "Trasferimenti" in una spesa Eng:) resta visibile e selezionato.
+  if (cur && !list.includes(cur)) list = list.concat(cur);
   return `<div class="chips">${list.map(v => `<button type="button" class="chip" data-k="${key}" data-v="${esc(v)}" aria-pressed="${v === cur}">${esc(v)}</button>`).join("")}</div>`;
 }
 function fields() {
@@ -646,7 +656,7 @@ function fields() {
   $("#addFields").innerHTML = h;
   $$("#addFields [data-k]").forEach(b => b.onclick = () => { A[b.dataset.k] = b.dataset.v; fields(); });
 }
-function closeAdd() { $("#overlay").innerHTML = ""; document.body.style.overflow = ""; }
+function closeAdd() { $("#overlay").innerHTML = ""; document.body.style.overflow = ""; EDIT = null; }
 async function saveAdd() {
   const err = $("#addErr"); err.textContent = "";
   const amtRaw = $("#amt").value, imp = parseInputAmount(amtRaw);
@@ -665,6 +675,7 @@ async function saveAdd() {
     const mesi = A.tipo === "Spesa" && +A.mesi > 1 ? " [" + A.mesi + " mesi]" : "";
     rows = [[ds, A.tipo, A.tip, imp, A.tipo === "Spesa" ? A.cat : "", A.conto, (desc + mesi).trim()]];
   }
+  if (EDIT) return saveEdit(EDIT, rows);
   const last = store.get("mc-last") || {};
   if (A.tipo === "Trasferimento") { last.da = A.da; last.a = A.a; } else last[A.tipo] = A.conto;
   store.set("mc-last", last);
@@ -698,6 +709,104 @@ async function undo(r1, r2) {
     toast("Movimento eliminato dal foglio");
   } catch { toast("Non sono riuscito ad annullare: eliminalo dal foglio."); }
   loadAll();
+}
+
+/* ---------- dettaglio, modifica, eliminazione ----------
+   Le righe sono indicate dal numero di riga letto all'ultimo aggiornamento. Prima di scrivere
+   rileggo quelle righe dal foglio: se nel frattempo sono cambiate (es. modifiche dal computer)
+   non tocco niente, così non rischio di cambiare o cancellare il movimento sbagliato. */
+let EDIT = null;
+const partsOf = m => m.kind === "tr" ? m.parts : [m];
+function detailRows(m) {
+  const n = m.kind === "tr" ? 1 : spreadOf(m);
+  const desc = m.kind === "tr" ? m.desc : cleanDesc(m.desc);
+  const r = [["Data", dayLabel(m.d) + " " + m.d.getFullYear()]];
+  if (m.kind === "tr") r.push(["Da", m.da], ["A", m.a]);
+  else {
+    r.push(["Tipo", m.tipo], ["Tipologia", m.tip]);
+    if (m.tipo === "Spesa" && m.cat && !isTr(m)) r.push(["Categoria", m.cat]);
+    r.push([m.tipo === "Spesa" ? "Pagato con" : "Arrivato su", m.conto]);
+    if (n > 1) r.push(["Nei grafici", "diviso su " + n + " mesi"]);
+  }
+  return r.map(([k, v]) => `<div><span>${k}</span><b>${esc(v)}</b></div>`).join("")
+    + (desc ? `<div class="long"><span>Descrizione</span><p>${esc(desc)}</p></div>` : "");
+}
+function openDetail(m) {
+  if (!m) return;
+  const inc = m.kind !== "tr" && m.tipo === "Entrata";
+  const title = m.kind === "tr" || isTr(m) ? "Trasferimento" : m.tip;
+  $("#overlay").innerHTML = `<div class="scrim" id="scrim"></div>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="detT"><div class="sheet-in">
+    <div class="grab" aria-hidden="true"></div>
+    <div class="row" style="align-items:center"><h2 class="h1" id="detT" style="font-size:22px">${esc(title)}</h2><button class="link" id="closeAdd" style="font-size:15px">Chiudi</button></div>
+    <span class="big ${inc && !isTr(m) ? "pos" : ""}" style="font-size:36px">${m.kind === "tr" ? "" : inc ? "+" : "−"}${eur(m.imp)}</span>
+    <div class="det">${detailRows(m)}</div>
+    ${m.pending ? `<span class="sub">In attesa di invio al foglio: potrai modificarlo o eliminarlo dopo l'invio.</span>`
+      : `<span class="err" id="detErr" role="alert"></span>
+    <button class="btn" id="editMv">Modifica</button>
+    <button class="btn danger" id="delMv">Elimina</button>`}
+  </div></div>`;
+  document.body.style.overflow = "hidden";
+  $("#scrim").onclick = closeAdd; $("#closeAdd").onclick = closeAdd;
+  if (m.pending) return;
+  $("#editMv").onclick = () => {
+    const f = m.kind === "tr"
+      ? { A: { tipo: "Trasferimento", da: m.da, a: m.a }, desc: m.desc }
+      : { A: { tipo: m.tipo, tip: m.tip, cat: m.cat || "Bisogno", conto: m.conto, mesi: String(spreadOf(m)) }, desc: cleanDesc(m.desc) };
+    openAdd({ ...f, amt: fmt2(m.imp), date: isoDate(m.d), edit: m });
+  };
+  const del = $("#delMv");
+  del.onclick = () => {
+    // Primo tocco: chiede conferma. Secondo tocco: elimina.
+    if (!del.classList.contains("armed")) { del.classList.add("armed"); del.textContent = "Tocca di nuovo per eliminare"; return; }
+    deleteMv(m);
+  };
+}
+async function checkRows(parts) {
+  const ranges = parts.map(p => "ranges=" + encodeURIComponent("Movimenti!A" + p.row + ":G" + p.row)).join("&");
+  const res = await api("/values:batchGet?" + ranges + "&valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=SERIAL_NUMBER");
+  const same = res.valueRanges.every((vr, i) => {
+    const r = (vr.values || [])[0] || [], p = parts[i], d = toDate(r[0]);
+    return d && d.getTime() === p.d.getTime() && (r[1] || "") === p.tipo && (r[2] || "") === p.tip && Math.abs(num(r[3]) - p.imp) < 0.005 && (r[5] || "") === p.conto && (r[6] || "") === p.desc;
+  });
+  if (!same) { const e = new Error("changed"); e.code = "changed"; throw e; }
+}
+function writeError(e) {
+  if (e instanceof AuthError) return "L'accesso a Google è scaduto: chiudi, tocca aggiorna nella Home e riprova.";
+  if (e.code === "offline") return "Serve la connessione per modificare il foglio.";
+  if (e.code === "changed") { loadAll(); return "Il movimento nel foglio è cambiato nel frattempo: ho ricaricato i dati, riaprilo e riprova."; }
+  return "Il foglio ha rifiutato la modifica: " + e.message;
+}
+async function deleteMv(m) {
+  const err = $("#detErr"), del = $("#delMv"); err.textContent = "";
+  if (!navigator.onLine) { err.textContent = "Serve la connessione per eliminare."; return; }
+  del.disabled = true; del.textContent = "Elimino…";
+  try {
+    const parts = partsOf(m);
+    await checkRows(parts);
+    // Dalla riga più in basso, così le altre non cambiano numero.
+    const requests = parts.map(p => p.row).sort((a, b) => b - a).map(r => ({ deleteDimension: { range: { sheetId: CFG.movimentiSheetId, dimension: "ROWS", startIndex: r - 1, endIndex: r } } }));
+    await api(":batchUpdate", { method: "POST", body: JSON.stringify({ requests }) });
+    closeAdd(); toast((m.kind === "tr" ? "Trasferimento" : "Movimento") + " eliminato"); loadAll();
+  } catch (e) {
+    del.disabled = false; del.classList.remove("armed"); del.textContent = "Elimina";
+    err.textContent = writeError(e);
+  }
+}
+async function saveEdit(m, rows) {
+  const err = $("#addErr"), btn = $("#saveAdd");
+  if (!navigator.onLine) { err.textContent = "Serve la connessione per salvare le modifiche."; return; }
+  btn.disabled = true; btn.textContent = "Salvo…";
+  try {
+    const parts = partsOf(m);
+    await checkRows(parts);
+    const data = parts.map((p, i) => ({ range: "Movimenti!A" + p.row + ":G" + p.row, values: [rows[i]] }));
+    await api("/values:batchUpdate", { method: "POST", body: JSON.stringify({ valueInputOption: "USER_ENTERED", data }) });
+    closeAdd(); toast("Modifiche salvate"); loadAll();
+  } catch (e) {
+    btn.disabled = false; btn.textContent = "Salva modifiche";
+    err.textContent = writeError(e);
+  }
 }
 
 /* ---------- PAC ---------- */

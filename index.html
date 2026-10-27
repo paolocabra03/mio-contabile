@@ -91,6 +91,7 @@ button{cursor:pointer}
 .day{font-size:12px;font-weight:600;color:var(--muted);padding:10px 0 2px;border-top:1px solid var(--line-soft)}
 .day:first-child{border-top:none}
 .mv{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 0}
+button.mv{width:100%;background:none;border:none;border-radius:0;padding:8px 0;text-align:left;color:inherit;font:inherit}
 .mv + .mv{border-top:1px solid var(--line-soft)}
 .badge{width:36px;height:36px;border-radius:11px;background:var(--sunk);color:var(--muted);display:grid;place-items:center;font-weight:700;font-size:13px}
 .badge.in{background:var(--accent-soft);color:var(--accent)}
@@ -139,6 +140,17 @@ button{cursor:pointer}
 .btn{border:none;border-radius:14px;padding:15px;font-weight:600;font-size:16px;background:var(--hero);color:#FFFFFF;width:100%;min-height:50px}
 .btn.ghost{background:var(--sunk);color:var(--fg);font-size:15px;padding:12px;min-height:44px}
 .btn[disabled]{opacity:.55}
+.btn.danger{background:transparent;color:var(--neg);border:1px solid var(--neg);font-size:15px;padding:12px;min-height:44px}
+.btn.danger.armed{background:var(--neg);color:#FFFFFF}
+
+/* dettaglio movimento */
+.det{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:2px 14px}
+.det > div{display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:11px 0;font-size:15px}
+.det > div + div{border-top:1px solid var(--line-soft)}
+.det span{color:var(--muted);flex:0 0 auto}
+.det b{font-weight:600;text-align:right;min-width:0;overflow-wrap:anywhere}
+.det .long{flex-direction:column;align-items:stretch;gap:4px}
+.det .long p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.45}
 
 /* barra in basso */
 .nav{position:fixed;left:0;right:0;bottom:0;z-index:10;background:var(--surface);border-top:1px solid var(--line);
