@@ -447,32 +447,37 @@ function trendHtml(names, tot) {
   const [lx, ly] = xy[xy.length - 1];
   TREND = { pts, xy, from, W, H };
   return `<div class="trend">
-    <span class="sub">${cap}</span>
-    <div class="plot" id="plot"><div class="tip" id="tip" hidden></div>
-    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Andamento del patrimonio, ${per[1]}${hide ? ". Cifre nascoste" : ""}. Scorri il dito per leggere un giorno"><path d="${line} L${W} ${H} L0 ${H}Z" fill="rgba(255,255,255,.14)"/><path d="${line}" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="3.5" fill="#fff"/><line id="trLine" y1="0" y2="${H}" stroke="#fff" stroke-opacity=".55" stroke-width="1" visibility="hidden"/><circle id="trDot" r="4.5" fill="#fff" stroke="var(--hero)" stroke-width="2" visibility="hidden"/></svg></div>
+    <div class="cap" id="cap"><span class="sub">${cap}</span></div>
+    <div class="plot" id="plot">
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Andamento del patrimonio, ${per[1]}${hide ? ". Cifre nascoste" : ""}. Scorri il dito per leggere un giorno"><path d="${line} L${W} ${H} L0 ${H}Z" fill="rgba(255,255,255,.14)"/><path d="${line}" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="3.5" fill="#fff"/><line id="trLine" y1="0" y2="${H}" stroke="#fff" stroke-opacity=".55" stroke-width="1" visibility="hidden"/><circle id="trDot" r="5.5" fill="#fff" stroke="var(--hero)" stroke-width="2.5" visibility="hidden"/></svg></div>
     <div class="per" role="group" aria-label="Periodo">${PERIODI.map(p => `<button type="button" data-per="${p[0]}" aria-pressed="${p === per}">${p[1]}</button>`).join("")}</div>
   </div>`;
 }
-// Toccando o scorrendo il dito sul grafico compare una schedina con il giorno e il patrimonio di quel punto.
+// Toccando o scorrendo il dito sul grafico, sopra il grafico (non sotto il dito) compaiono il giorno, il patrimonio
+// di quel punto e la differenza da oggi. Il grafico blocca lo scorrimento della pagina (touch-action: none), così
+// un dito che scivola in verticale non interrompe la lettura.
 function bindScrub() {
   const plot = $("#plot"); if (!plot || !TREND) return;
-  const tip = $("#tip"), line = $("#trLine"), dot = $("#trDot"), svg = plot.querySelector("svg");
+  const cap = $("#cap"), base = cap.innerHTML, line = $("#trLine"), dot = $("#trDot"), svg = plot.querySelector("svg");
+  const now = TREND.pts[TREND.pts.length - 1].v;
   const show = e => {
-    const r = svg.getBoundingClientRect(), { pts, xy, from, W, H } = TREND;
+    const r = svg.getBoundingClientRect(), { pts, xy, from } = TREND;
     const f = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
     const j = Math.round(f * (pts.length - 1)), [x, y] = xy[j];
     const d = new Date(from.getFullYear(), from.getMonth(), from.getDate() + pts[j].i);
     line.setAttribute("x1", x); line.setAttribute("x2", x); dot.setAttribute("cx", x); dot.setAttribute("cy", y);
     line.setAttribute("visibility", "visible"); dot.setAttribute("visibility", "visible");
-    tip.innerHTML = "<span>" + dayLabel(d) + " " + d.getFullYear() + "</span><b>" + M(pts[j].v) + "</b>";
-    tip.hidden = false;
-    const w = tip.offsetWidth, px = x / W * r.width;
-    tip.style.left = Math.min(Math.max(0, px - w / 2), r.width - w) + "px";
+    const diff = pts[j].v - now;
+    const df = isHidden() ? "" : diff === 0 ? "oggi" : eur(Math.abs(diff)) + (diff > 0 ? " sopra oggi" : " sotto oggi");
+    cap.innerHTML = "<div class=\"rd\"><span>" + d.toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short", year: "numeric" }) + "</span><b>" + M(pts[j].v) + "</b></div>" + (df ? "<span class=\"df\">" + df + "</span>" : "");
+    cap.classList.add("on");
   };
-  const hideTip = () => { tip.hidden = true; line.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); };
+  const end = () => { cap.innerHTML = base; cap.classList.remove("on"); line.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); };
   plot.addEventListener("pointerdown", e => { plot.setPointerCapture?.(e.pointerId); show(e); });
-  plot.addEventListener("pointermove", e => { if (e.pointerType !== "mouse" || e.buttons || !tip.hidden) show(e); });
-  ["pointerup", "pointercancel", "pointerleave"].forEach(t => plot.addEventListener(t, hideTip));
+  plot.addEventListener("pointermove", e => { if (e.pointerType !== "mouse" || e.buttons || cap.classList.contains("on")) show(e); });
+  ["pointerup", "pointercancel"].forEach(t => plot.addEventListener(t, end));
+  plot.addEventListener("pointerleave", e => { if (e.pointerType === "mouse") end(); });
+  plot.addEventListener("contextmenu", e => e.preventDefault());
 }
 function vHome() {
   const now = new Date();

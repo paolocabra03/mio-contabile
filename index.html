@@ -74,10 +74,12 @@ button{cursor:pointer}
 .eye svg{width:20px;height:20px}
 .trend{display:flex;flex-direction:column;gap:6px}
 .trend svg{width:100%;height:auto;display:block}
-.plot{position:relative;touch-action:pan-y;-webkit-user-select:none;user-select:none}
-.tip{position:absolute;top:-4px;z-index:2;pointer-events:none;background:var(--surface);color:var(--fg);border-radius:10px;padding:6px 10px;display:flex;flex-direction:column;gap:1px;white-space:nowrap;box-shadow:0 4px 14px rgba(0,0,0,.28)}
-.tip span{font-size:12px;color:var(--muted)}
-.tip b{font-size:14px;font-weight:700}
+.plot{position:relative;touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.cap{min-height:44px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.cap .rd{display:flex;flex-direction:column;min-width:0}
+.cap .rd span{white-space:nowrap;font-size:12px;color:var(--on-accent-muted)}
+.cap .rd b{font-size:18px;line-height:1.15;font-weight:700}
+.cap .df{white-space:nowrap;font-size:12px;color:var(--on-accent-muted);text-align:right}
 .per{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin-top:-2px}
 .per button{min-height:44px;border:none;border-radius:22px;background:transparent;color:var(--on-accent-muted);font-weight:600;font-size:13px}
 .per button[aria-pressed="true"]{background:rgba(255,255,255,.18);color:#FFFFFF}
