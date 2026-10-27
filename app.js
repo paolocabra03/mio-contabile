@@ -32,10 +32,15 @@ const num = v => {
   if (s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");
   const n = parseFloat(s); return isNaN(n) ? 0 : n;
 };
-const parseInputAmount = s => {
-  let t = String(s || "").trim().replace(/\s|€/g, "");
+// Accetta "12,50", "12.5", "1.500" (= millecinquecento) e "1.500,25"; testo con lettere o simboli strani no.
+const parseInputAmount = (s, dec = 2) => {
+  let t = String(s || "").trim().replace(/[\s€]/g, "");
+  if (!/^\d[\d.,]*$/.test(t)) return NaN;
   if (t.includes(",")) t = t.replace(/\./g, "").replace(",", ".");
-  const n = parseFloat(t); return isNaN(n) ? NaN : Math.round(n * 100) / 100;
+  else if (/^[1-9]\d{0,2}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, "");
+  if (!/^\d+(\.\d+)?$/.test(t)) return NaN;
+  const k = Math.pow(10, dec);
+  return Math.round(parseFloat(t) * k) / k;
 };
 const toDate = v => {
   if (typeof v === "number") { const d = new Date(1899, 11, 30); d.setDate(d.getDate() + Math.floor(v)); return d; }
@@ -119,8 +124,11 @@ async function api(path, opts = {}) {
   }
   return res.json();
 }
+let reloadAfter = false;
 async function loadAll() {
-  if (S.loading || !sheetId()) return;
+  if (!sheetId()) return;
+  // Se un caricamento è già in corso, ne faccio ripartire uno appena finisce: i dati appena scritti non vanno persi.
+  if (S.loading) { reloadAfter = true; return; }
   if (!navigator.onLine) { S.error = { code: "offline" }; render(); return; }
   if (!token()) { login(true); return; }
   S.loading = true; spin(true);
@@ -137,7 +145,10 @@ async function loadAll() {
   } catch (e) {
     if (e instanceof AuthError) { S.loading = false; spin(false); login(true); return; }
     S.error = e;
-  } finally { S.loading = false; spin(false); render(); }
+  } finally {
+    S.loading = false; spin(false); render();
+    if (reloadAfter) { reloadAfter = false; loadAll(); }
+  }
 }
 function apply({ mov, conti, imp, pac }) {
   S.mov = mov.map((r, i) => ({ row: i + 2, d: toDate(r[0]), tipo: r[1] || "", tip: r[2] || "", imp: num(r[3]), cat: r[4] || "", conto: r[5] || "", desc: r[6] || "" }))
@@ -213,7 +224,7 @@ function pendingBanner() {
   const n = q.length === 1 ? "1 movimento in attesa di invio" : q.length + " movimenti in attesa di invio";
   const msg = err ? "Il foglio ha rifiutato l'invio: " + esc(err.error) + ". Controlla il foglio e riprova."
     : navigator.onLine ? "Sono salvati sul telefono. Li invio adesso." : "Sono salvati sul telefono e partono appena torna la rete. Saldi e totali si aggiornano dopo l'invio.";
-  return `<div class="card" style="gap:8px;border-color:var(--s2)"><b style="font-weight:600">${n}</b><span class="sub">${msg}</span>${navigator.onLine ? `<button class="btn ghost" id="flushBtn">Invia ora</button>` : ""}</div>`;
+  return `<div class="card" style="gap:8px;border-color:var(--s2)"><b style="font-weight:600">${n}</b><span class="sub">${msg}</span>${navigator.onLine ? `<button class="btn ghost" id="flushBtn">Invia ora</button>` : ""}${err ? `<button class="btn ghost" id="discardBtn" data-id="${esc(err.id)}">Scarta il movimento rifiutato</button>` : ""}</div>`;
 }
 
 // Se sul conto del PAC c'è meno della rata mensile, il prossimo versamento non può partire: avviso di ricaricare.
@@ -570,9 +581,13 @@ function render() {
   if (!authed) { $("#nav").hidden = true; app.innerHTML = vWelcome(); bind(); return; }
   $("#nav").hidden = false;
   VIEW.clear();
+  // Quello che hai scritto nei moduli PAC non si perde se la schermata si ridisegna (aggiornamento in background).
+  const typed = {};
+  $$("#pacForm input, #valForm input").forEach(i => { if (i.id) typed[i.id] = i.type === "checkbox" ? i.checked : i.value; });
   $$(".tab").forEach(t => t.setAttribute("aria-current", t.dataset.tab === S.tab ? "page" : "false"));
   app.innerHTML = S.tab === "home" ? vHome() : S.tab === "mov" ? vMov() : S.tab === "charts" ? vCharts() : vPac();
   bind();
+  Object.entries(typed).forEach(([id, v]) => { const el = document.getElementById(id); if (!el) return; if (el.type === "checkbox") el.checked = v; else el.value = v; });
 }
 function spin(on) { const b = $("#refresh"); if (b) b.classList.toggle("spin", on); }
 function bind() {
@@ -598,6 +613,7 @@ function bind() {
   on("#changeSheet", "click", changeSheet);
   on("#setupForm", "submit", submitSetup);
   on("#flushBtn", "click", () => { flush().then(() => loadAll()); });
+  on("#discardBtn", "click", e => { Q.remove(e.currentTarget.dataset.id); render(); toast("Movimento rifiutato scartato"); loadAll(); });
 }
 function go(tab) { S.tab = tab; render(); window.scrollTo(0, 0); }
 
@@ -834,7 +850,8 @@ async function savePac(ev) {
   const d = $("#pacDate").value ? fromIso($("#pacDate").value) : new Date(), ds = sheetDate(d);
   const rows = [];
   S.set.etf.forEach((e, i) => {
-    const imp = parseInputAmount($("#pacAmt" + i).value), q = parseInputAmount($("#pacQ" + i).value);
+    // Le quote hanno fino a 6 decimali: non si arrotondano ai centesimi.
+    const imp = parseInputAmount($("#pacAmt" + i).value), q = parseInputAmount($("#pacQ" + i).value, 6);
     if (imp > 0) rows.push([ds, e.nome, imp, q > 0 ? q : "", q > 0 ? Math.round(imp / q * 100) / 100 : "", ""]);
   });
   if (!rows.length) { err.textContent = "Inserisci almeno un importo."; return; }
