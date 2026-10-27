@@ -552,7 +552,7 @@ function barsChart(rows, pick) {
   const H = 110;
   const cols = rows.map((r, i) => {
     const ha = r.a / max * H, hb = r.b / max * H;
-    return `<button class="col" data-cm="${isoDate(r.m)}" aria-pressed="${i === pick}" aria-label="${MESI[r.m.getMonth()]}"><i class="bar" style="width:12px;height:${ha.toFixed(1)}px;background:var(--in)"></i><i class="bar" style="width:12px;height:${hb.toFixed(1)}px;background:var(--out)"></i></button>`;
+    return `<button class="col" data-cm="${isoDate(r.m)}" aria-pressed="${i === pick}" aria-label="${MESI[r.m.getMonth()]}: entrate ${M(r.a)}, uscite ${M(r.b)}"><i class="bar" style="width:12px;height:${ha.toFixed(1)}px;background:var(--in)"></i><i class="bar" style="width:12px;height:${hb.toFixed(1)}px;background:var(--out)"></i></button>`;
   }).join("");
   return `<div class="chart"><div class="yax"><span>${isHidden() ? "" : axisK(max)}</span><span>${isHidden() ? "" : axisK(max / 2)}</span><span>${isHidden() ? "" : "0"}</span></div>
     <div class="plot"><span class="g" style="top:0"></span><span class="g" style="top:${H / 2}px"></span><span class="base"></span>${cols}</div></div>
@@ -758,7 +758,9 @@ function toast(msg, action) {
 
 /* ---------- nuovo movimento ---------- */
 const A = { tipo: "Spesa", tip: "", cat: "Bisogno", conto: "", da: "", a: "", mesi: "1" };
+let OPENER = null; // elemento che aveva il fuoco prima di aprire un foglio
 function openAdd(draft) {
+  OPENER = document.activeElement;
   const last = store.get("mc-last") || {};
   Object.assign(A, { tipo: "Spesa", tip: "", cat: "Bisogno", conto: last.Spesa || "", da: last.da || "", a: last.a || "", mesi: "1" }, draft ? draft.A : {});
   EDIT = draft?.edit || null;
@@ -836,7 +838,7 @@ function fields() {
   $("#addMesi").innerHTML = mesi;
   $$("#addFields [data-k], #addMesi [data-k]").forEach(b => b.onclick = () => { A[b.dataset.k] = b.dataset.v; fields(); });
 }
-function closeAdd() { window.visualViewport?.removeEventListener("resize", fitSheet); window.visualViewport?.removeEventListener("scroll", fitSheet); $("#overlay").innerHTML = ""; document.body.style.overflow = ""; EDIT = null; }
+function closeAdd() { window.visualViewport?.removeEventListener("resize", fitSheet); window.visualViewport?.removeEventListener("scroll", fitSheet); $("#overlay").innerHTML = ""; document.body.style.overflow = ""; EDIT = null; if (OPENER && OPENER.isConnected) OPENER.focus?.({ preventScroll: true }); OPENER = null; }
 async function saveAdd() {
   const err = $("#addErr"); err.textContent = "";
   const amtRaw = $("#amt").value, imp = parseInputAmount(amtRaw);
@@ -916,6 +918,7 @@ function detailRows(m) {
 }
 function openDetail(m) {
   if (!m) return;
+  OPENER = document.activeElement;
   const inc = m.kind !== "tr" && m.tipo === "Entrata";
   const title = m.kind === "tr" || isTr(m) ? "Trasferimento" : m.tip;
   $("#overlay").innerHTML = `<div class="scrim" id="scrim"></div>
@@ -939,6 +942,7 @@ function openDetail(m) {
     openAdd({ ...f, amt: fmt2(m.imp), date: isoDate(m.d), edit: m });
   };
   const del = $("#delMv");
+  $("#closeAdd")?.focus({ preventScroll: true });
   let armedAt = 0;
   del.onclick = () => {
     // Primo tocco: chiede conferma. Secondo tocco: elimina.
@@ -1055,7 +1059,17 @@ async function saveVal(ev) {
 /* ---------- avvio ---------- */
 $$(".tab").forEach(t => t.addEventListener("click", () => go(t.dataset.tab)));
 $("#openAdd").addEventListener("click", () => openAdd());
-document.addEventListener("keydown", e => { if (e.key === "Escape" && $("#overlay").innerHTML) closeAdd(); });
+document.addEventListener("keydown", e => {
+  if (!$("#overlay").innerHTML) return;
+  if (e.key === "Escape") { closeAdd(); return; }
+  if (e.key !== "Tab") return;
+  const f = $$(".sheet button:not([disabled]), .sheet input, .sheet summary").filter(x => x.offsetParent !== null);
+  if (!f.length) return;
+  const first = f[0], last = f[f.length - 1];
+  if (!$(".sheet").contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+  else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+});
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState !== "visible") return;
   if (Q.all().length || (S.loadedAt && Date.now() - S.loadedAt > 5 * 60 * 1000)) loadAll();
