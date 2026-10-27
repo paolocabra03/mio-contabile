@@ -545,7 +545,7 @@ function vMov() {
     <span class="label">${MESI[S.movMonth.getMonth()]} ${S.movMonth.getFullYear()}</span>
     <button class="round-btn" id="nextM" aria-label="Mese successivo">${ICON.next}</button>
   </div>
-  <div style="height:56px" aria-hidden="true"></div>`;
+  <div style="height:120px" aria-hidden="true"></div>`;
 }
 function barsChart(rows, pick) {
   const max = (() => { const v = Math.max(1, ...rows.map(r => Math.max(r.a, r.b))); const p = Math.pow(10, Math.floor(Math.log10(v))); const n = v / p; return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 4 ? 4 : n <= 5 ? 5 : 10) * p; })();
@@ -691,6 +691,7 @@ function render() {
   $$(".tab").forEach(t => t.setAttribute("aria-current", t.dataset.tab === S.tab ? "page" : "false"));
   app.innerHTML = S.tab === "home" ? vHome() : S.tab === "mov" ? vMov() : S.tab === "charts" ? vCharts() : vPac();
   bind();
+  document.body.classList.toggle("has-dock", S.tab === "mov");
   Object.entries(typed).forEach(([id, v]) => { const el = document.getElementById(id); if (!el) return; if (el.type === "checkbox") el.checked = v; else el.value = v; });
 }
 function spin(on) { const b = $("#refresh"); if (b) b.classList.toggle("spin", on); }
@@ -762,7 +763,7 @@ let OPENER = null; // elemento che aveva il fuoco prima di aprire un foglio
 function openAdd(draft) {
   OPENER = document.activeElement;
   const last = store.get("mc-last") || {};
-  Object.assign(A, { tipo: "Spesa", tip: "", cat: "Bisogno", conto: last.Spesa || "", da: last.da || "", a: last.a || "", mesi: "1" }, draft ? draft.A : {});
+  Object.assign(A, { tipo: "Spesa", tip: "", cat: "Bisogno", conto: last.Spesa || "", da: last.da || "", a: last.a || "", mesi: "1", tipAll: false }, draft ? draft.A : {});
   EDIT = draft?.edit || null;
   // In modifica un trasferimento resta trasferimento (sono due righe) e una spesa o entrata resta una riga sola.
   const tipi = !EDIT ? ["Spesa", "Entrata", "Trasferimento"] : EDIT.kind === "tr" ? [] : ["Spesa", "Entrata"];
@@ -789,7 +790,7 @@ function openAdd(draft) {
   document.body.style.overflow = "hidden";
   $("#scrim").onclick = closeAdd; $("#closeAdd").onclick = closeAdd;
   $$("#segTipo button").forEach(b => b.onclick = () => {
-    A.tipo = b.dataset.tipo; A.tip = ""; A.conto = (store.get("mc-last") || {})[A.tipo] || "";
+    A.tipo = b.dataset.tipo; A.tip = ""; A.tipAll = false; A.conto = (store.get("mc-last") || {})[A.tipo] || "";
     $$("#segTipo button").forEach(x => x.setAttribute("aria-pressed", x === b)); fields();
   });
   $("#saveAdd").onclick = saveAdd;
@@ -812,10 +813,10 @@ function recentFirst(list, tipo) {
   const used = list.filter(v => at[v]).sort((a, b) => at[b] - at[a]);
   return used.concat(list.filter(v => !at[v]));
 }
-function chips(list, cur, key) {
+function chips(list, cur, key, extra = "") {
   // Un valore già nel foglio ma non tra le scelte (es. "Trasferimenti" in una spesa Eng:) resta visibile e selezionato.
   if (cur && !list.includes(cur)) list = list.concat(cur);
-  return `<div class="chips">${list.map(v => `<button type="button" class="chip" data-k="${key}" data-v="${esc(v)}" aria-pressed="${v === cur}">${esc(v)}</button>`).join("")}</div>`;
+  return `<div class="chips">${list.map(v => `<button type="button" class="chip" data-k="${key}" data-v="${esc(v)}" aria-pressed="${v === cur}">${esc(v)}</button>`).join("")}${extra}</div>`;
 }
 function fields() {
   const tutti = S.set.conti.length ? S.set.conti : S.conti.map(c => c.nome);
@@ -823,9 +824,12 @@ function fields() {
   const conti = A.tipo === "Trasferimento" ? tutti : tutti.filter(c => c !== S.set.contoInv || c === A.conto);
   let h = "", mesi = "";
   if (A.tipo === "Spesa") {
-    h += `<div class="field"><span class="lab">Tipologia</span>${chips(recentFirst(S.set.spesa, "Spesa"), A.tip, "tip")}</div>`;
-    h += `<div class="field"><span class="lab">Pagato con</span>${chips(conti, A.conto, "conto")}</div>`;
+    const tl = recentFirst(S.set.spesa, "Spesa"), lungo = tl.length > 6;
+    const vis = A.tipAll || !lungo ? tl : tl.slice(0, 5).concat(A.tip && !tl.slice(0, 5).includes(A.tip) ? [A.tip] : []);
+    const altre = lungo ? `<button type="button" class="chip more" data-act="tipAll" aria-expanded="${!!A.tipAll}">${A.tipAll ? "Meno" : "Altre " + (tl.length - vis.length)}</button>` : "";
+    h += `<div class="field"><span class="lab">Tipologia</span>${chips(vis, A.tip, "tip", altre)}</div>`;
     h += `<div class="field"><span class="lab">Bisogno o desiderio?</span><div class="seg two">${S.set.categorie.slice(0, 2).map((c, i) => `<button type="button" data-k="cat" data-v="${esc(c)}" aria-pressed="${A.cat === c}"><i class="sw ${i ? "des" : ""}" style="width:9px;height:9px;background:var(${i ? "--s2" : "--s1"})"></i>${esc(c)}</button>`).join("")}</div></div>`;
+    h += `<div class="field"><span class="lab">Pagato con</span>${chips(conti, A.conto, "conto")}</div>`;
     mesi = `<div class="field"><span class="lab">Quanti mesi copre? (solo per i grafici)</span><div class="seg five">${(["1", "2", "3", "6", "12"].includes(A.mesi) ? ["1", "2", "3", "6", "12"] : ["1", "2", "3", "6", "12", A.mesi]).map(n => `<button type="button" data-k="mesi" data-v="${n}" aria-pressed="${A.mesi === n}">${n}</button>`).join("")}</div></div>`;
   } else if (A.tipo === "Entrata") {
     h += `<div class="field"><span class="lab">Da chi</span>${chips(recentFirst(S.set.entrata, "Entrata"), A.tip, "tip")}</div>`;
@@ -836,6 +840,7 @@ function fields() {
   }
   $("#addFields").innerHTML = h;
   $("#addMesi").innerHTML = mesi;
+  $$("#addFields [data-act=tipAll]").forEach(b => b.onclick = () => { A.tipAll = !A.tipAll; fields(); });
   $$("#addFields [data-k], #addMesi [data-k]").forEach(b => b.onclick = () => { A[b.dataset.k] = b.dataset.v; fields(); });
 }
 function closeAdd() { window.visualViewport?.removeEventListener("resize", fitSheet); window.visualViewport?.removeEventListener("scroll", fitSheet); $("#overlay").innerHTML = ""; document.body.style.overflow = ""; EDIT = null; if (OPENER && OPENER.isConnected) OPENER.focus?.({ preventScroll: true }); OPENER = null; }
@@ -924,13 +929,14 @@ function openDetail(m) {
   $("#overlay").innerHTML = `<div class="scrim" id="scrim"></div>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="detT"><div class="sheet-in">
     <div class="grab" aria-hidden="true"></div>
-    <div class="row" style="align-items:center"><h2 class="h1" id="detT" style="font-size:22px">${esc(title)}</h2><button class="link" id="closeAdd" style="font-size:15px">Chiudi</button></div>
+    <div class="row" style="align-items:center"><h2 class="h1" id="detT" style="font-size:22px">${esc(title)}</h2></div>
     <span class="big ${isTr(m) || m.kind === "tr" ? "" : inc ? "pos" : "out"}" style="font-size:36px">${m.kind === "tr" ? "" : inc ? "+" : "−"}${eur(m.imp)}</span>
     <div class="det">${detailRows(m)}</div>
     ${m.pending ? `<span class="sub">In attesa di invio al foglio: potrai modificarlo o eliminarlo dopo l'invio.</span>`
       : `<span class="err" id="detErr" role="alert"></span>
     <button class="btn" id="editMv">Modifica</button>
     <button class="btn danger" id="delMv">Elimina</button>`}
+    <button class="btn ghost" id="closeAdd">Chiudi</button>
   </div></div>`;
   document.body.style.overflow = "hidden";
   $("#scrim").onclick = closeAdd; $("#closeAdd").onclick = closeAdd;
