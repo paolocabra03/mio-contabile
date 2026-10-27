@@ -255,7 +255,14 @@ function pairTransfers(list) {
   list.forEach((m, i) => {
     if (used.has(i)) return;
     if (isTr(m)) {
-      const j = list.findIndex((o, k) => k !== i && !used.has(k) && isTr(o) && o.tipo !== m.tipo && o.imp === m.imp && o.d.getTime() === m.d.getTime());
+      // Più trasferimenti uguali nello stesso giorno: scelgo la riga attaccata (l'app le scrive in coppia) e, a parità, quella con "Verso/Da" coerente.
+      let j = -1, best = -1;
+      list.forEach((o, k) => {
+        if (k === i || used.has(k) || !isTr(o) || o.tipo === m.tipo || o.imp !== m.imp || o.d.getTime() !== m.d.getTime()) return;
+        const [u, e] = m.tipo === "Spesa" ? [m, o] : [o, m];
+        const score = (Math.abs(o.row - m.row) === 1 ? 2 : 0) + (/^verso /i.test(u.desc) ? /^verso (.*)$/i.exec(u.desc)[1] === e.conto : /^da /i.test(e.desc) && e.desc.slice(3) === u.conto) * 1;
+        if (score > best) { best = score; j = k; }
+      });
       if (j >= 0) {
         used.add(i); used.add(j);
         const out1 = m.tipo === "Spesa" ? m : list[j], in1 = m.tipo === "Spesa" ? list[j] : m;
@@ -756,9 +763,16 @@ function openDetail(m) {
     openAdd({ ...f, amt: fmt2(m.imp), date: isoDate(m.d), edit: m });
   };
   const del = $("#delMv");
+  let armedAt = 0;
   del.onclick = () => {
     // Primo tocco: chiede conferma. Secondo tocco: elimina.
-    if (!del.classList.contains("armed")) { del.classList.add("armed"); del.textContent = "Tocca di nuovo per eliminare"; return; }
+    // Un doppio tap veloce non conta: serve un secondo tocco dopo almeno mezzo secondo, e la conferma scade dopo 4 secondi.
+    if (!del.classList.contains("armed")) {
+      del.classList.add("armed"); del.textContent = "Tocca di nuovo per eliminare"; armedAt = Date.now();
+      setTimeout(() => { if (del.isConnected && !del.disabled) { del.classList.remove("armed"); del.textContent = "Elimina"; } }, 4000);
+      return;
+    }
+    if (Date.now() - armedAt < 600) return;
     deleteMv(m);
   };
 }
@@ -774,7 +788,7 @@ async function checkRows(parts) {
 function writeError(e) {
   if (e instanceof AuthError) return "L'accesso a Google è scaduto: chiudi, tocca aggiorna nella Home e riprova.";
   if (e.code === "offline") return "Serve la connessione per modificare il foglio.";
-  if (e.code === "changed") { loadAll(); return "Il movimento nel foglio è cambiato nel frattempo: ho ricaricato i dati, riaprilo e riprova."; }
+  if (e.code === "changed") { closeAdd(); loadAll(); toast("Il movimento nel foglio è cambiato: ho ricaricato i dati, riaprilo e riprova"); return ""; }
   return "Il foglio ha rifiutato la modifica: " + e.message;
 }
 async function deleteMv(m) {
