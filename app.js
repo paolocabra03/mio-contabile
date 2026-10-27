@@ -662,16 +662,24 @@ function openAdd(draft) {
   $("#overlay").innerHTML = `<div class="scrim" id="scrim"></div>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="addT"><div class="sheet-in">
     <div class="grab" aria-hidden="true"></div>
-    <div class="row" style="align-items:center"><h2 class="h1" id="addT" style="font-size:22px">${EDIT ? "Modifica " + (EDIT.kind === "tr" ? "trasferimento" : "movimento") : "Nuovo movimento"}</h2><button class="link" id="closeAdd" style="font-size:15px">Annulla</button></div>
+    <div class="row" style="align-items:center"><h2 class="h1" id="addT" style="font-size:22px">${EDIT ? "Modifica " + (EDIT.kind === "tr" ? "trasferimento" : "movimento") : "Nuovo movimento"}</h2></div>
     ${tipi.length ? `<div class="seg ${tipi.length === 2 ? "two" : ""}" id="segTipo">${tipi.map(t => `<button type="button" data-tipo="${t}" aria-pressed="${A.tipo === t}">${t}</button>`).join("")}</div>` : ""}
     <label class="amount"><span>€</span><input id="amt" inputmode="decimal" placeholder="0,00" autocomplete="off" aria-label="Importo" value="${esc(draft?.amt || "")}"></label>
     <div id="addFields" class="stack" style="gap:16px"></div>
-    <div class="pair">
-      <div class="field"><label for="addDate">Data</label><input class="inp" type="date" id="addDate" value="${esc(draft?.date || isoDate(new Date()))}"></div>
-      <div class="field"><label for="addDesc">Descrizione</label><input class="inp" id="addDesc" placeholder="facoltativa" autocomplete="off" value="${esc(draft?.desc || "")}"></div>
+    <details class="more" ${EDIT || draft?.desc || +A.mesi > 1 ? "open" : ""}><summary>Altro<span>data, descrizione${EDIT ? "" : ", mesi"}</span></summary>
+      <div class="stack" style="gap:16px">
+        <div id="addMesi"></div>
+        <div class="pair">
+          <div class="field"><label for="addDate">Data</label><input class="inp" type="date" id="addDate" value="${esc(draft?.date || isoDate(new Date()))}"></div>
+          <div class="field"><label for="addDesc">Descrizione</label><input class="inp" id="addDesc" placeholder="facoltativa" autocomplete="off" value="${esc(draft?.desc || "")}"></div>
+        </div>
+      </div>
+    </details>
+    <div class="sheet-foot">
+      <span class="err" id="addErr" role="alert"></span>
+      <button class="btn ghost" type="button" id="closeAdd">Annulla</button>
+      <button class="btn" id="saveAdd">${EDIT ? "Salva modifiche" : "Salva"}</button>
     </div>
-    <span class="err" id="addErr" role="alert"></span>
-    <button class="btn" id="saveAdd">${EDIT ? "Salva modifiche" : "Salva nel foglio"}</button>
   </div></div>`;
   document.body.style.overflow = "hidden";
   $("#scrim").onclick = closeAdd; $("#closeAdd").onclick = closeAdd;
@@ -680,8 +688,24 @@ function openAdd(draft) {
     $$("#segTipo button").forEach(x => x.setAttribute("aria-pressed", x === b)); fields();
   });
   $("#saveAdd").onclick = saveAdd;
+  fitSheet();
+  window.visualViewport?.addEventListener("resize", fitSheet);
+  window.visualViewport?.addEventListener("scroll", fitSheet);
   fields();
   if (!draft) setTimeout(() => $("#amt")?.focus(), 80);
+}
+// Il foglio sta sopra la tastiera: su iPhone la tastiera copre il fondo della pagina, non lo accorcia.
+function fitSheet() {
+  const sh = $(".sheet"), vv = window.visualViewport; if (!sh || !vv) return;
+  sh.style.bottom = Math.max(0, window.innerHeight - vv.height - vv.offsetTop) + "px";
+  sh.style.maxHeight = (vv.height - 20) + "px";
+}
+// Le tipologie usate più di recente vanno in prima fila; le altre restano nell'ordine del foglio.
+function recentFirst(list, tipo) {
+  const at = {};
+  S.mov.forEach(m => { if (m.tipo === tipo && !isTr(m) && m.d && (!at[m.tip] || m.d > at[m.tip])) at[m.tip] = m.d; });
+  const used = list.filter(v => at[v]).sort((a, b) => at[b] - at[a]);
+  return used.concat(list.filter(v => !at[v]));
 }
 function chips(list, cur, key) {
   // Un valore già nel foglio ma non tra le scelte (es. "Trasferimenti" in una spesa Eng:) resta visibile e selezionato.
@@ -689,24 +713,27 @@ function chips(list, cur, key) {
   return `<div class="chips">${list.map(v => `<button type="button" class="chip" data-k="${key}" data-v="${esc(v)}" aria-pressed="${v === cur}">${esc(v)}</button>`).join("")}</div>`;
 }
 function fields() {
-  const conti = S.set.conti.length ? S.set.conti : S.conti.map(c => c.nome);
-  let h = "";
+  const tutti = S.set.conti.length ? S.set.conti : S.conti.map(c => c.nome);
+  // Il conto ETF si usa solo nei trasferimenti: non si paga una spesa con quello.
+  const conti = A.tipo === "Trasferimento" ? tutti : tutti.filter(c => c !== S.set.contoInv || c === A.conto);
+  let h = "", mesi = "";
   if (A.tipo === "Spesa") {
-    h += `<div class="field"><span class="lab">Tipologia</span>${chips(S.set.spesa, A.tip, "tip")}</div>`;
-    h += `<div class="field"><span class="lab">Bisogno o desiderio?</span><div class="seg two">${S.set.categorie.slice(0, 2).map((c, i) => `<button type="button" data-k="cat" data-v="${esc(c)}" aria-pressed="${A.cat === c}"><i class="sw" style="width:9px;height:9px;background:var(${i ? "--s2" : "--s1"})"></i>${esc(c)}</button>`).join("")}</div></div>`;
+    h += `<div class="field"><span class="lab">Tipologia</span>${chips(recentFirst(S.set.spesa, "Spesa"), A.tip, "tip")}</div>`;
     h += `<div class="field"><span class="lab">Pagato con</span>${chips(conti, A.conto, "conto")}</div>`;
-    h += `<div class="field"><span class="lab">Quanti mesi copre? (solo per i grafici)</span><div class="seg five">${(["1", "2", "3", "6", "12"].includes(A.mesi) ? ["1", "2", "3", "6", "12"] : ["1", "2", "3", "6", "12", A.mesi]).map(n => `<button type="button" data-k="mesi" data-v="${n}" aria-pressed="${A.mesi === n}">${n}</button>`).join("")}</div></div>`;
+    h += `<div class="field"><span class="lab">Bisogno o desiderio?</span><div class="seg two">${S.set.categorie.slice(0, 2).map((c, i) => `<button type="button" data-k="cat" data-v="${esc(c)}" aria-pressed="${A.cat === c}"><i class="sw" style="width:9px;height:9px;background:var(${i ? "--s2" : "--s1"})"></i>${esc(c)}</button>`).join("")}</div></div>`;
+    mesi = `<div class="field"><span class="lab">Quanti mesi copre? (solo per i grafici)</span><div class="seg five">${(["1", "2", "3", "6", "12"].includes(A.mesi) ? ["1", "2", "3", "6", "12"] : ["1", "2", "3", "6", "12", A.mesi]).map(n => `<button type="button" data-k="mesi" data-v="${n}" aria-pressed="${A.mesi === n}">${n}</button>`).join("")}</div></div>`;
   } else if (A.tipo === "Entrata") {
-    h += `<div class="field"><span class="lab">Da chi</span>${chips(S.set.entrata, A.tip, "tip")}</div>`;
+    h += `<div class="field"><span class="lab">Da chi</span>${chips(recentFirst(S.set.entrata, "Entrata"), A.tip, "tip")}</div>`;
     h += `<div class="field"><span class="lab">Arrivato su</span>${chips(conti, A.conto, "conto")}</div>`;
   } else {
     h += `<div class="field"><span class="lab">Da</span>${chips(conti, A.da, "da")}</div>`;
     h += `<div class="field"><span class="lab">A</span>${chips(conti, A.a, "a")}</div>`;
   }
   $("#addFields").innerHTML = h;
-  $$("#addFields [data-k]").forEach(b => b.onclick = () => { A[b.dataset.k] = b.dataset.v; fields(); });
+  $("#addMesi").innerHTML = mesi;
+  $$("#addFields [data-k], #addMesi [data-k]").forEach(b => b.onclick = () => { A[b.dataset.k] = b.dataset.v; fields(); });
 }
-function closeAdd() { $("#overlay").innerHTML = ""; document.body.style.overflow = ""; EDIT = null; }
+function closeAdd() { window.visualViewport?.removeEventListener("resize", fitSheet); window.visualViewport?.removeEventListener("scroll", fitSheet); $("#overlay").innerHTML = ""; document.body.style.overflow = ""; EDIT = null; }
 async function saveAdd() {
   const err = $("#addErr"); err.textContent = "";
   const amtRaw = $("#amt").value, imp = parseInputAmount(amtRaw);
@@ -743,7 +770,7 @@ async function saveAdd() {
     loadAll();
   } catch (e) {
     if (e instanceof AuthError || e.code === "offline") { closeAdd(); queueSave(ops); return; }
-    btn.disabled = false; btn.textContent = "Salva nel foglio";
+    btn.disabled = false; btn.textContent = "Salva";
     err.textContent = "Il foglio ha rifiutato il salvataggio: " + e.message;
   }
 }
