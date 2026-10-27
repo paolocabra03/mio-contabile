@@ -309,6 +309,21 @@ const ICON = {
   swap: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h14l-3-3M20 16H6l3 3"/></svg>',
   google: '<svg aria-hidden="true" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>',
 };
+const ICON_TIP = {
+  spesa: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9h14l-1.5 9a2 2 0 0 1-2 1.7h-7a2 2 0 0 1-2-1.7L5 9z M9 9l3-5 3 5"/></svg>',
+  benzina: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V5a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v15 M3 20h12 M7.5 8h3 M13 9h2a2 2 0 0 1 2 2v5a1.5 1.5 0 0 0 3 0V8l-3-3"/></svg>',
+  cena: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v6a2 2 0 0 0 4 0V3 M8 11v10 M17 21V3c-2 1-3.5 4-3.5 8H17"/></svg>',
+  treno: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h8a2 2 0 0 1 2 2v9a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3V5a2 2 0 0 1 2-2z M6 10h12 M9 21l2-4 M15 21l-2-4"/></svg>',
+  sport: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4 M6 7v10 M18 7v10 M21 10v4 M6 12h12"/></svg>',
+  regali: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11h16v9H4z M3 7h18v4H3z M12 7v13 M12 7c-2-4-6-3-5 0 M12 7c2-4 6-3 5 0"/></svg>',
+  vestiti: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3L3 7l3 3 2-1v11h8V9l2 1 3-3-5-4a4 4 0 0 1-8 0z"/></svg>',
+  festa: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l11-2v13 M9 18a3 3 0 1 1-3-3 M20 16a3 3 0 1 1-3-3"/></svg>',
+  abbonamenti: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l3 3-3 3 M20 5H8a4 4 0 0 0-4 4v1 M7 22l-3-3 3-3 M4 19h12a4 4 0 0 0 4-4v-1"/></svg>',
+  viaggi: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3L10 14 M21 3l-7 18-4-7-7-4z"/></svg>',
+  entrata: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12 M7 11l5 5 5-5 M5 20h14"/></svg>',
+  altro: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l8-8h8v8l-8 8z"/></svg>',
+};
+const tipIcon = m => ICON_TIP[(m.tip || "").toLowerCase()] || (m.tipo === "Entrata" ? ICON_TIP.entrata : ICON_TIP.altro);
 const catDot = m => m.tipo === "Spesa" && !isTr(m) && m.cat ? `<span class="dot ${m.cat === "Desiderio" ? "des" : ""}" role="img" style="background:var(${m.cat === "Desiderio" ? "--s2" : "--s1"})" aria-label="${esc(m.cat)}"></span>` : "";
 const pendTag = m => m.pending ? `<span class="pend">in attesa</span>` : "";
 // Ogni riga mostrata è un pulsante: toccandola si apre il dettaglio. VIEW ricorda quale movimento c'è dietro.
@@ -317,16 +332,19 @@ function rowHtml(m, withDate) {
   const v = (m.kind === "tr" ? "t" : "r") + m.row;
   VIEW.set(v, m);
   if (m.kind === "tr") {
-    return `<button class="mv" data-view="${v}"><span class="badge">${ICON.swap}</span>
-      <span class="t"><b>Trasferimento${pendTag(m)}</b><span>${esc(m.da)} → ${esc(m.a)}${m.desc ? " · " + esc(m.desc) : ""}${withDate ? " · " + shortDay(m.d) : ""}</span></span>
+    return `<button class="mv" data-view="${v}"><span class="badge" aria-hidden="true">${ICON.swap}</span>
+      <span class="t"><b><span class="tt">${esc(m.da)} → ${esc(m.a)}</span>${pendTag(m)}</b><span>${["Trasferimento", m.desc && m.desc !== "Trasferimento" ? esc(m.desc) : "", withDate ? shortDay(m.d) : ""].filter(Boolean).join(" · ")}</span></span>
       <span class="a tr">${M(m.imp)}</span></button>`;
   }
   const inc = m.tipo === "Entrata";
   const n = spreadOf(m);
-  const sub = [m.conto, withDate ? shortDay(m.d) : "", n > 1 ? "su " + n + " mesi" : "", cleanDesc(m.desc)].filter(Boolean).join(" · ");
-  return `<button class="mv" data-view="${v}"><span class="badge ${inc ? "in" : ""}" aria-hidden="true">${esc((m.tip || "?").slice(0, 2))}</span>
-    <span class="t"><b>${esc(isTr(m) ? "Trasferimento" : m.tip)}${catDot(m)}${pendTag(m)}</b><span>${esc(sub)}</span></span>
-    <span class="a ${inc && !isTr(m) ? "pos" : ""}">${inc ? "+" : "−"}${M(m.imp)}</span></button>`;
+  // Quello che ricordi è la descrizione: guida la riga. Tipologia e conto vanno sotto.
+  const desc = cleanDesc(m.desc);
+  const title = desc || m.tip || "Movimento";
+  const sub = [desc ? m.tip : "", m.conto, withDate ? shortDay(m.d) : "", n > 1 ? "su " + n + " mesi" : ""].filter(Boolean).join(" · ");
+  return `<button class="mv" data-view="${v}"><span class="badge ${inc ? "in" : ""}" aria-hidden="true">${tipIcon(m)}</span>
+    <span class="t"><b><span class="tt">${esc(title)}</span>${pendTag(m)}</b><span>${catDot(m)}${esc(sub)}</span></span>
+    <span class="a ${isTr(m) ? "" : inc ? "pos" : "out"}">${inc ? "+" : "−"}${M(m.imp)}</span></button>`;
 }
 function grouped(items) {
   if (!items.length) return `<div class="empty">Nessun movimento.</div>`;
@@ -429,7 +447,7 @@ function vHome() {
     <div class="row"><span class="eyebrow">Questo mese</span><span class="sub" style="font-size:12px">trasferimenti esclusi</span></div>
     <div class="trio">
       <div class="stack"><span class="sub">Entrate</span><b>${M(st.ent)}</b></div>
-      <div class="stack"><span class="sub">Uscite</span><b>${M(st.usc)}</b></div>
+      <div class="stack"><span class="sub">Uscite</span><b class="out">${M(st.usc)}</b></div>
       <div class="stack"><span class="sub">Netto</span><b class="${hide ? "" : st.net >= 0 ? "pos" : ""}">${hide ? "" : st.net >= 0 ? "+" : ""}${M(st.net)}</b></div>
     </div>
     ${spT ? `<div class="split" role="img" aria-label="Bisogno ${Math.round(pb)}%, desiderio ${Math.round(100 - pb)}%">${st.bis ? `<i style="width:${pb}%;background:var(--s1)"></i>` : ""}${st.des ? `<i class="des" style="width:${100 - pb}%;background:var(--s2)"></i>` : ""}</div>
@@ -451,17 +469,18 @@ function vMov() {
   const items = byDateDesc(pairTransfers(byDateDesc(ms)));
   const chip = (id, l) => `<button class="chip" data-filter="${id}" aria-pressed="${S.movFilter === id}">${l}</button>`;
   return `
-  <div class="monthbar">
-    <button class="round-btn" id="prevM" aria-label="Mese precedente">${ICON.prev}</button>
-    <span class="label">${MESI[S.movMonth.getMonth()]} ${S.movMonth.getFullYear()}</span>
-    <button class="round-btn" id="nextM" aria-label="Mese successivo">${ICON.next}</button>
-  </div>
   ${banner()}
   ${pendingBanner()}
   <label class="search">${ICON.search}<input id="q" type="search" placeholder="Cerca descrizione, tipologia, conto" value="${esc(S.movQuery)}" aria-label="Cerca movimenti" autocomplete="off"></label>
   <div class="chips">${chip("tutti", "Tutti")}${chip("spese", "Spese")}${chip("entrate", "Entrate")}${chip("trasf", "Trasferimenti")}</div>
   <section class="card" style="padding-top:6px;padding-bottom:6px;gap:0">${grouped(items)}</section>
-  <span class="sub">Tocca un movimento per leggerlo tutto, modificarlo o eliminarlo.</span>`;
+  <span class="sub">Tocca un movimento per leggerlo tutto, modificarlo o eliminarlo.</span>
+  <div class="monthdock" role="group" aria-label="Mese">
+    <button class="round-btn" id="prevM" aria-label="Mese precedente">${ICON.prev}</button>
+    <span class="label">${MESI[S.movMonth.getMonth()]} ${S.movMonth.getFullYear()}</span>
+    <button class="round-btn" id="nextM" aria-label="Mese successivo">${ICON.next}</button>
+  </div>
+  <div style="height:56px" aria-hidden="true"></div>`;
 }
 function barsChart(rows, pick) {
   const max = (() => { const v = Math.max(1, ...rows.map(r => Math.max(r.a, r.b))); const p = Math.pow(10, Math.floor(Math.log10(v))); const n = v / p; return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 4 ? 4 : n <= 5 ? 5 : 10) * p; })();
