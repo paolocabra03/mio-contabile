@@ -665,14 +665,12 @@ function openAdd(draft) {
     <div class="row" style="align-items:center"><h2 class="h1" id="addT" style="font-size:22px">${EDIT ? "Modifica " + (EDIT.kind === "tr" ? "trasferimento" : "movimento") : "Nuovo movimento"}</h2></div>
     ${tipi.length ? `<div class="seg ${tipi.length === 2 ? "two" : ""}" id="segTipo">${tipi.map(t => `<button type="button" data-tipo="${t}" aria-pressed="${A.tipo === t}">${t}</button>`).join("")}</div>` : ""}
     <label class="amount"><span>€</span><input id="amt" inputmode="decimal" placeholder="0,00" autocomplete="off" aria-label="Importo" value="${esc(draft?.amt || "")}"></label>
+    <div class="field"><label for="addDesc">Descrizione</label><input class="inp" id="addDesc" placeholder="es. pizza con Luca" autocomplete="off" value="${esc(draft?.desc || "")}"></div>
     <div id="addFields" class="stack" style="gap:16px"></div>
-    <details class="more" ${EDIT || draft?.desc || +A.mesi > 1 ? "open" : ""}><summary>Altro<span>data, descrizione${EDIT ? "" : ", mesi"}</span></summary>
+    <details class="more" ${EDIT || +A.mesi > 1 ? "open" : ""}><summary>Altro<span>data${EDIT ? "" : ", mesi"}</span></summary>
       <div class="stack" style="gap:16px">
         <div id="addMesi"></div>
-        <div class="pair">
-          <div class="field"><label for="addDate">Data</label><input class="inp" type="date" id="addDate" value="${esc(draft?.date || isoDate(new Date()))}"></div>
-          <div class="field"><label for="addDesc">Descrizione</label><input class="inp" id="addDesc" placeholder="facoltativa" autocomplete="off" value="${esc(draft?.desc || "")}"></div>
-        </div>
+        <div class="field"><label for="addDate">Data</label><input class="inp" type="date" id="addDate" value="${esc(draft?.date || isoDate(new Date()))}"></div>
       </div>
     </details>
     <div class="sheet-foot">
