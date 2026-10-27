@@ -234,7 +234,7 @@ function pendingBanner() {
   const n = q.length === 1 ? "1 movimento in attesa di invio" : q.length + " movimenti in attesa di invio";
   const msg = err ? "Il foglio ha rifiutato l'invio: " + esc(err.error) + ". Controlla il foglio e riprova."
     : navigator.onLine ? "Sono salvati sul telefono. Li invio adesso." : "Sono salvati sul telefono e partono appena torna la rete. Saldi e totali si aggiornano dopo l'invio.";
-  return `<div class="card" style="gap:8px;border-color:var(--s2)"><b style="font-weight:600">${n}</b><span class="sub">${msg}</span>${navigator.onLine ? `<button class="btn ghost" id="flushBtn">Invia ora</button>` : ""}${err ? `<button class="btn ghost" id="discardBtn" data-id="${esc(err.id)}">Scarta il movimento rifiutato</button>` : ""}</div>`;
+  return `<div class="card" style="gap:8px;border-color:var(--warn)"><b style="font-weight:600">${n}</b><span class="sub">${msg}</span>${navigator.onLine ? `<button class="btn ghost" id="flushBtn">Invia ora</button>` : ""}${err ? `<button class="btn ghost" id="discardBtn" data-id="${esc(err.id)}">Scarta il movimento rifiutato</button>` : ""}</div>`;
 }
 
 // Se sul conto del PAC c'è meno della rata mensile, il prossimo versamento non può partire: avviso di ricaricare.
@@ -245,7 +245,7 @@ function pacWarn() {
   const np = nextPac(), hide = isHidden();
   const msg = hide ? `Il saldo non basta per il versamento del ${np.d.getDate()} ${MESI[np.d.getMonth()]}.`
     : `Ci sono ${eur(c.saldo)}, ma il versamento del ${np.d.getDate()} ${MESI[np.d.getMonth()]} ne preleva ${eur(plan)}. Aggiungi almeno ${eur(plan - c.saldo)}.`;
-  return `<div class="card" role="alert" style="gap:6px;border-color:var(--s2)"><b style="font-weight:600">Ricarica ${esc(da)}</b><span class="sub">${msg}</span></div>`;
+  return `<div class="card" role="alert" style="gap:6px;border-color:var(--warn)"><b style="font-weight:600">Ricarica ${esc(da)}</b><span class="sub">${msg}</span></div>`;
 }
 
 /* ---------- calcoli ---------- */
@@ -309,7 +309,7 @@ const ICON = {
   swap: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h14l-3-3M20 16H6l3 3"/></svg>',
   google: '<svg aria-hidden="true" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>',
 };
-const catDot = m => m.tipo === "Spesa" && !isTr(m) && m.cat ? `<span class="dot" style="background:var(${m.cat === "Desiderio" ? "--s2" : "--s1"})" aria-label="${esc(m.cat)}"></span>` : "";
+const catDot = m => m.tipo === "Spesa" && !isTr(m) && m.cat ? `<span class="dot ${m.cat === "Desiderio" ? "des" : ""}" role="img" style="background:var(${m.cat === "Desiderio" ? "--s2" : "--s1"})" aria-label="${esc(m.cat)}"></span>` : "";
 const pendTag = m => m.pending ? `<span class="pend">in attesa</span>` : "";
 // Ogni riga mostrata è un pulsante: toccandola si apre il dettaglio. VIEW ricorda quale movimento c'è dietro.
 const VIEW = new Map();
@@ -430,10 +430,10 @@ function vHome() {
     <div class="trio">
       <div class="stack"><span class="sub">Entrate</span><b>${M(st.ent)}</b></div>
       <div class="stack"><span class="sub">Uscite</span><b>${M(st.usc)}</b></div>
-      <div class="stack"><span class="sub">Netto</span><b class="${hide ? "" : st.net >= 0 ? "pos" : "neg"}">${hide ? "" : st.net >= 0 ? "+" : ""}${M(st.net)}</b></div>
+      <div class="stack"><span class="sub">Netto</span><b class="${hide ? "" : st.net >= 0 ? "pos" : ""}">${hide ? "" : st.net >= 0 ? "+" : ""}${M(st.net)}</b></div>
     </div>
-    ${spT ? `<div class="split" role="img" aria-label="Bisogno ${Math.round(pb)}%, desiderio ${Math.round(100 - pb)}%">${st.bis ? `<i style="width:${pb}%;background:var(--s1)"></i>` : ""}${st.des ? `<i style="width:${100 - pb}%;background:var(--s2)"></i>` : ""}</div>
-    <div class="legend"><span><i class="sw" style="background:var(--s1)"></i>Bisogno ${M0(st.bis)} · ${Math.round(pb)}%</span><span><i class="sw" style="background:var(--s2)"></i>Desiderio ${M0(st.des)} · ${Math.round(100 - pb)}%</span></div>`
+    ${spT ? `<div class="split" role="img" aria-label="Bisogno ${Math.round(pb)}%, desiderio ${Math.round(100 - pb)}%">${st.bis ? `<i style="width:${pb}%;background:var(--s1)"></i>` : ""}${st.des ? `<i class="des" style="width:${100 - pb}%;background:var(--s2)"></i>` : ""}</div>
+    <div class="legend"><span><i class="sw" style="background:var(--s1)"></i>Bisogno ${M0(st.bis)} · ${Math.round(pb)}%</span><span><i class="sw des" style="background:var(--s2)"></i>Desiderio ${M0(st.des)} · ${Math.round(100 - pb)}%</span></div>`
       : `<span class="empty">Nessuna spesa questo mese. Tocca + per aggiungerne una.</span>`}
   </section>
   <section class="card" style="padding-bottom:8px;gap:4px">
@@ -468,7 +468,7 @@ function barsChart(rows, pick) {
   const H = 110;
   const cols = rows.map((r, i) => {
     const ha = r.a / max * H, hb = r.b / max * H;
-    return `<button class="col" data-cm="${isoDate(r.m)}" aria-pressed="${i === pick}" aria-label="${MESI[r.m.getMonth()]}"><i class="bar" style="width:12px;height:${ha.toFixed(1)}px;background:var(--s1)"></i><i class="bar" style="width:12px;height:${hb.toFixed(1)}px;background:var(--s2)"></i></button>`;
+    return `<button class="col" data-cm="${isoDate(r.m)}" aria-pressed="${i === pick}" aria-label="${MESI[r.m.getMonth()]}"><i class="bar" style="width:12px;height:${ha.toFixed(1)}px;background:var(--in)"></i><i class="bar" style="width:12px;height:${hb.toFixed(1)}px;background:var(--out)"></i></button>`;
   }).join("");
   return `<div class="chart"><div class="yax"><span>${isHidden() ? "" : axisK(max)}</span><span>${isHidden() ? "" : axisK(max / 2)}</span><span>${isHidden() ? "" : "0"}</span></div>
     <div class="plot"><span class="g" style="top:0"></span><span class="g" style="top:${H / 2}px"></span><span class="base"></span>${cols}</div></div>
@@ -494,7 +494,7 @@ function vCharts() {
   <section class="card">
     <div class="row"><span class="eyebrow">Entrate e uscite</span><span class="sub">uscite medie ${M0(avg)}</span></div>
     ${barsChart(all.map(s => ({ m: s.m, a: s.ent, b: s.usc })), pick)}
-    <div class="legend"><span><i class="sw" style="background:var(--s1)"></i>Entrate</span><span><i class="sw" style="background:var(--s2)"></i>Uscite</span></div>
+    <div class="legend"><span><i class="sw" style="background:var(--in)"></i>Entrate</span><span><i class="sw" style="background:var(--out)"></i>Uscite</span></div>
   </section>
   <div class="monthbar">
     <button class="round-btn" id="prevC" aria-label="Mese precedente">${ICON.prev}</button>
@@ -503,11 +503,11 @@ function vCharts() {
   </div>
   <section class="card">
     <div class="row"><span class="eyebrow">Spese per tipologia</span><b style="font-weight:600">${M(st.usc)}</b></div>
-    ${hbars(st.byTip, "--s2", "Nessuna spesa a " + name + ".")}
+    ${hbars(st.byTip, "--out", "Nessuna spesa a " + name + ".")}
   </section>
   <section class="card">
     <div class="row"><span class="eyebrow">Entrate per tipologia</span><b style="font-weight:600">${M(st.ent)}</b></div>
-    ${hbars(st.byEnt, "--s1", "Nessuna entrata a " + name + ".")}
+    ${hbars(st.byEnt, "--in", "Nessuna entrata a " + name + ".")}
   </section>
   <span class="sub">Trasferimenti tra conti esclusi. Le spese che coprono più mesi sono divise tra quei mesi.</span>`;
 }
@@ -525,7 +525,7 @@ function vPac() {
   const totVal = etf.reduce((a, e) => a + (e.valore != null ? e.valore : vers(e.nome)), 0);
   const np = nextPac();
   const bal = n => S.conti.find(c => c.nome === n)?.saldo;
-  const colors = ["--s1", "--s2"];
+  const colors = ["--accent", "--out"];
   const labels = ["Azioni", "Obbligazioni"];
   const single = etf.length === 1; // con un solo ETF la ripartizione e le ripetizioni non dicono niente
   const hist = byDateDesc(S.pac.map((p, i) => ({ ...p, row: i }))).slice(0, 12);
@@ -547,7 +547,7 @@ function vPac() {
     ${etf.map((e, i) => { const v = vers(e.nome); return `<div class="etf">
       <div class="row"><span class="nm">${esc(e.nome)}</span><b style="white-space:nowrap">${M0(e.mensile)}/mese</b></div>
       ${single ? (e.isin ? `<div class="row sub"><span>${esc(e.isin)}</span></div>` : "") : `<div class="row sub"><span>${esc(e.isin || "")}${e.isin ? " · " : ""}versato ${M(v)}</span><span>${plan ? Math.round(e.mensile / plan * 100) : 0}%</span></div>`}
-      ${e.valore != null ? `<div class="row sub"><span>valore ${M(e.valore)}</span><span class="${e.valore - v >= 0 ? "pos" : "neg"}">${e.valore - v >= 0 ? "+" : ""}${M(e.valore - v)}</span></div>` : ""}
+      ${e.valore != null ? `<div class="row sub"><span>valore ${M(e.valore)}</span><span class="${e.valore - v >= 0 ? "pos" : ""}">${e.valore - v >= 0 ? "+" : ""}${M(e.valore - v)}</span></div>` : ""}
       ${i === 0 && S.set.quote != null ? `<div class="row sub"><span>${S.set.quote.toLocaleString("it-IT", { maximumFractionDigits: 6 })} quote${S.set.prezzo != null ? " · " + M(S.set.prezzo) + " a quota (Google Finance)" : ""}</span></div>` : ""}
     </div>`; }).join("") || `<span class="empty">Aggiungi gli ETF nel foglio Impostazioni.</span>`}
     ${etf.length > 1 ? `<div class="split">${etf.map((e, i) => `<i style="width:${plan ? e.mensile / plan * 100 : 0}%;background:var(${colors[i] || "--muted"})"></i>`).join("")}</div>
@@ -737,7 +737,7 @@ function fields() {
   if (A.tipo === "Spesa") {
     h += `<div class="field"><span class="lab">Tipologia</span>${chips(recentFirst(S.set.spesa, "Spesa"), A.tip, "tip")}</div>`;
     h += `<div class="field"><span class="lab">Pagato con</span>${chips(conti, A.conto, "conto")}</div>`;
-    h += `<div class="field"><span class="lab">Bisogno o desiderio?</span><div class="seg two">${S.set.categorie.slice(0, 2).map((c, i) => `<button type="button" data-k="cat" data-v="${esc(c)}" aria-pressed="${A.cat === c}"><i class="sw" style="width:9px;height:9px;background:var(${i ? "--s2" : "--s1"})"></i>${esc(c)}</button>`).join("")}</div></div>`;
+    h += `<div class="field"><span class="lab">Bisogno o desiderio?</span><div class="seg two">${S.set.categorie.slice(0, 2).map((c, i) => `<button type="button" data-k="cat" data-v="${esc(c)}" aria-pressed="${A.cat === c}"><i class="sw ${i ? "des" : ""}" style="width:9px;height:9px;background:var(${i ? "--s2" : "--s1"})"></i>${esc(c)}</button>`).join("")}</div></div>`;
     mesi = `<div class="field"><span class="lab">Quanti mesi copre? (solo per i grafici)</span><div class="seg five">${(["1", "2", "3", "6", "12"].includes(A.mesi) ? ["1", "2", "3", "6", "12"] : ["1", "2", "3", "6", "12", A.mesi]).map(n => `<button type="button" data-k="mesi" data-v="${n}" aria-pressed="${A.mesi === n}">${n}</button>`).join("")}</div></div>`;
   } else if (A.tipo === "Entrata") {
     h += `<div class="field"><span class="lab">Da chi</span>${chips(recentFirst(S.set.entrata, "Entrata"), A.tip, "tip")}</div>`;
