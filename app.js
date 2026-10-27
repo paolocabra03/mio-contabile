@@ -318,7 +318,7 @@ const ICON_TIP = {
   regali: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11h16v9H4z M3 7h18v4H3z M12 7v13 M12 7c-2-4-6-3-5 0 M12 7c2-4 6-3 5 0"/></svg>',
   vestiti: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3L3 7l3 3 2-1v11h8V9l2 1 3-3-5-4a4 4 0 0 1-8 0z"/></svg>',
   festa: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l11-2v13 M9 18a3 3 0 1 1-3-3 M20 16a3 3 0 1 1-3-3"/></svg>',
-  abbonamenti: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l3 3-3 3 M20 5H8a4 4 0 0 0-4 4v1 M7 22l-3-3 3-3 M4 19h12a4 4 0 0 0 4-4v-1"/></svg>',
+  abbonamenti: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z M3 10h18 M8 3v4 M16 3v4"/></svg>',
   viaggi: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3L10 14 M21 3l-7 18-4-7-7-4z"/></svg>',
   entrata: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12 M7 11l5 5 5-5 M5 20h14"/></svg>',
   altro: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l8-8h8v8l-8 8z"/></svg>',
@@ -341,7 +341,7 @@ function rowHtml(m, withDate) {
   // Quello che ricordi è la descrizione: guida la riga. Tipologia e conto vanno sotto.
   const desc = cleanDesc(m.desc);
   const title = desc || m.tip || "Movimento";
-  const sub = [desc ? m.tip : "", m.conto, withDate ? shortDay(m.d) : "", n > 1 ? "su " + n + " mesi" : ""].filter(Boolean).join(" · ");
+  const sub = [desc ? m.tip : "", n > 1 ? "su " + n + " mesi" : "", m.conto, withDate ? shortDay(m.d) : ""].filter(Boolean).join(" · ");
   return `<button class="mv" data-view="${v}"><span class="badge ${inc ? "in" : ""}" aria-hidden="true">${tipIcon(m)}</span>
     <span class="t"><b><span class="tt">${esc(title)}</span>${pendTag(m)}</b><span>${catDot(m)}${esc(sub)}</span></span>
     <span class="a ${isTr(m) ? "" : inc ? "pos" : "out"}">${inc ? "+" : "−"}${M(m.imp)}</span></button>`;
@@ -645,7 +645,7 @@ function vPac() {
       <button class="btn" type="submit" id="valSave">Salva quote</button></form>` : ""}
   </section>
   <section class="card">
-    <div class="row"><span class="eyebrow">Versamenti</span><span class="sub">${S.pac.length} registrati</span></div>
+    <div class="row"><span class="eyebrow">Versamenti</span><span class="sub">${S.pac.length === 1 ? "1 registrato" : S.pac.length + " registrati"}</span></div>
     ${hist.length ? `<div class="list">${hist.map(p => `${single
       ? `<div class="mv single"><div class="t"><b>${p.d.getDate()} ${MESI[p.d.getMonth()]} ${p.d.getFullYear()}</b>${p.quote ? `<span>${p.quote.toLocaleString("it-IT", { maximumFractionDigits: 4 })} quote</span>` : ""}</div>`
       : `<div class="mv"><span class="badge in" aria-hidden="true">${esc((p.etf.split(" ")[2] || "ET").slice(0, 2))}</span>
@@ -795,7 +795,7 @@ function openAdd(draft) {
   $(".sheet").classList.add("has-foot");
   $("#scrim").onclick = closeAdd; $("#closeAdd").onclick = closeAdd;
   $$("#segTipo button").forEach(b => b.onclick = () => {
-    A.tipo = b.dataset.tipo; A.tip = ""; A.tipAll = false; A.conto = (store.get("mc-last") || {})[A.tipo] || "";
+    A.tipo = b.dataset.tipo; A.tip = ""; A.tipAll = false; $("#addErr").textContent = ""; A.conto = (store.get("mc-last") || {})[A.tipo] || "";
     $$("#segTipo button").forEach(x => x.setAttribute("aria-pressed", x === b)); fields();
   });
   $("#saveAdd").onclick = saveAdd;
@@ -918,7 +918,7 @@ let EDIT = null;
 const partsOf = m => m.kind === "tr" ? m.parts : [m];
 function detailRows(m) {
   const n = m.kind === "tr" ? 1 : spreadOf(m);
-  const desc = m.kind === "tr" ? m.desc : cleanDesc(m.desc);
+  const desc = m.kind === "tr" ? m.desc : ""; // negli altri casi la descrizione è il titolo del foglio
   const r = [["Data", dayLabel(m.d) + " " + m.d.getFullYear()]];
   if (m.kind === "tr") r.push(["Da", m.da], ["A", m.a]);
   else {
@@ -934,18 +934,19 @@ function openDetail(m) {
   if (!m) return;
   OPENER = document.activeElement;
   const inc = m.kind !== "tr" && m.tipo === "Entrata";
-  const title = m.kind === "tr" || isTr(m) ? "Trasferimento" : m.tip;
+  const dsc = m.kind === "tr" ? "" : cleanDesc(m.desc);
+  const title = dsc || (m.kind === "tr" || isTr(m) ? "Trasferimento" : m.tip);
   $("#overlay").innerHTML = `<div class="scrim" id="scrim"></div>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="detT"><div class="sheet-in">
     <div class="grab" aria-hidden="true"></div>
-    <div class="row" style="align-items:center"><h2 class="h1" id="detT" style="font-size:22px">${esc(title)}</h2></div>
+    <div class="row" style="align-items:center"><h2 class="h1" id="detT" style="font-size:${title.length > 60 ? 17 : 22}px;overflow-wrap:anywhere">${esc(title)}</h2></div>
     <span class="big ${isTr(m) || m.kind === "tr" ? "" : inc ? "pos" : "out"}" style="font-size:36px">${m.kind === "tr" ? "" : inc ? "+" : "−"}${eur(m.imp)}</span>
     <div class="det">${detailRows(m)}</div>
     ${m.pending ? `<span class="sub">In attesa di invio al foglio: potrai modificarlo o eliminarlo dopo l'invio.</span>`
       : `<span class="err" id="detErr" role="alert"></span>
-    <button class="btn" id="editMv">Modifica</button>
-    <button class="btn danger" id="delMv">Elimina</button>`}
+    <button class="btn" id="editMv">Modifica</button>`}
     <button class="btn ghost" id="closeAdd">Chiudi</button>
+    ${m.pending ? "" : `<button class="btn danger" id="delMv" style="margin-top:14px">Elimina</button>`}
   </div></div>`;
   document.body.style.overflow = "hidden";
   $("#scrim").onclick = closeAdd; $("#closeAdd").onclick = closeAdd;
