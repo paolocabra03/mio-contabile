@@ -610,7 +610,7 @@ function bind() {
   on("#pacForm", "submit", savePac);
   on("#valForm", "submit", saveVal);
   on("#logout", "click", logout);
-  on("#changeSheet", "click", changeSheet);
+  $$("#changeSheet").forEach(b => b.addEventListener("click", changeSheet)); // in PAC può comparirne due (avviso e fondo pagina)
   on("#setupForm", "submit", submitSetup);
   on("#flushBtn", "click", () => { flush().then(() => loadAll()); });
   on("#discardBtn", "click", e => { Q.remove(e.currentTarget.dataset.id); render(); toast("Movimento rifiutato scartato"); loadAll(); });
@@ -713,7 +713,8 @@ async function saveAdd() {
     closeAdd();
     const m = (p?.updates?.updatedRange || "").match(/![A-Z]+(\d+):[A-Z]+(\d+)/);
     const what = A.tipo === "Trasferimento" ? "Trasferimento di " + eur(imp) + " salvato" : A.tipo + " di " + eur(imp) + " salvata";
-    toast(what, m ? { label: "Annulla", run: () => undo(+m[1], +m[2]) } : null);
+    const written = rows.map((r, i) => ({ row: +m?.[1] + i, d, tipo: r[1], tip: r[2], imp: r[3], cat: r[4], conto: r[5], desc: r[6] }));
+    toast(what, m ? { label: "Annulla", run: () => undo(+m[1], +m[2], written) } : null);
     loadAll();
   } catch (e) {
     if (e instanceof AuthError || e.code === "offline") { closeAdd(); queueSave(ops); return; }
@@ -728,11 +729,13 @@ function queueSave(ops) {
   if (navigator.onLine) { toast("Salvato sul telefono: rinnovo l'accesso a Google e lo invio"); setTimeout(() => login(true), 1200); }
   else toast("Sei offline: salvato sul telefono, lo invio appena torna la rete", { label: "Annulla", run: () => { Q.remove(it.id); render(); toast("Movimento tolto dalla coda"); } });
 }
-async function undo(r1, r2) {
+async function undo(r1, r2, written) {
   try {
+    // Come per Elimina: prima controllo che quelle righe siano ancora il movimento appena scritto.
+    await checkRows(written);
     await api(":batchUpdate", { method: "POST", body: JSON.stringify({ requests: [{ deleteDimension: { range: { sheetId: CFG.movimentiSheetId, dimension: "ROWS", startIndex: r1 - 1, endIndex: r2 } } }] }) });
     toast("Movimento eliminato dal foglio");
-  } catch { toast("Non sono riuscito ad annullare: eliminalo dal foglio."); }
+  } catch (e) { toast(e.code === "changed" ? "Il foglio è cambiato nel frattempo: non ho toccato niente, eliminalo dal foglio." : "Non sono riuscito ad annullare: eliminalo dal foglio."); }
   loadAll();
 }
 

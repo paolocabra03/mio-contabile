@@ -1,6 +1,6 @@
 // Tiene in cache i file dell'app, così si apre anche senza rete.
 // I dati del foglio non passano di qui: arrivano sempre da Google.
-const VERSION = "mc-v14";
+const VERSION = "mc-v15";
 const SHELL = [
   "./", "./index.html", "./app.js", "./config.js", "./manifest.webmanifest",
   "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/favicon.png"
@@ -25,8 +25,8 @@ self.addEventListener("fetch", e => {
   e.respondWith(
     fetch(e.request, { cache: "no-cache" })
       .then(res => {
-        const copy = res.clone();
-        caches.open(VERSION).then(c => c.put(e.request, copy));
+        // Solo le risposte buone: una pagina di errore in cache verrebbe poi servita offline.
+        if (res.ok && res.status === 200) { const copy = res.clone(); caches.open(VERSION).then(c => c.put(e.request, copy)).catch(() => {}); }
         return res;
       })
       .catch(() => caches.match(e.request, { ignoreSearch: true }).then(r => r || caches.match("./index.html")))
