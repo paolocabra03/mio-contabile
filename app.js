@@ -233,7 +233,8 @@ const isTr = m => m.tip === "Trasferimenti";
 // Solo i grafici la dividono tra i mesi; saldi e patrimonio restano con l'importo intero nel giorno pagato.
 const SPREAD_RE = /\s*\[(\d{1,2}) mesi\]/i;
 const spreadOf = m => { const r = SPREAD_RE.exec(m.desc || ""); const n = r ? +r[1] : 1; return n > 1 && n <= 24 ? n : 1; };
-const cleanDesc = d => String(d || "").replace(SPREAD_RE, "").trim();
+// Il marcatore vale solo se è tra 2 e 24; altrimenti resta nel testo e non lo tocco.
+const cleanDesc = d => String(d || "").replace(SPREAD_RE, (t, n) => +n > 1 && +n <= 24 ? "" : t).trim();
 function stats(month, spread) {
   const part = m => {
     const n = spread && m.tipo === "Spesa" ? spreadOf(m) : 1;
@@ -290,9 +291,10 @@ const ICON = {
 const catDot = m => m.tipo === "Spesa" && !isTr(m) && m.cat ? `<span class="dot" style="background:var(${m.cat === "Desiderio" ? "--s2" : "--s1"})" aria-label="${esc(m.cat)}"></span>` : "";
 const pendTag = m => m.pending ? `<span class="pend">in attesa</span>` : "";
 // Ogni riga mostrata è un pulsante: toccandola si apre il dettaglio. VIEW ricorda quale movimento c'è dietro.
-const VIEW = [];
+const VIEW = new Map();
 function rowHtml(m, withDate) {
-  const v = VIEW.push(m) - 1;
+  const v = (m.kind === "tr" ? "t" : "r") + m.row;
+  VIEW.set(v, m);
   if (m.kind === "tr") {
     return `<button class="mv" data-view="${v}"><span class="badge">${ICON.swap}</span>
       <span class="t"><b>Trasferimento${pendTag(m)}</b><span>${esc(m.da)} → ${esc(m.a)}${m.desc ? " · " + esc(m.desc) : ""}${withDate ? " · " + shortDay(m.d) : ""}</span></span>
@@ -567,7 +569,7 @@ function render() {
   const app = $("#app");
   if (!authed) { $("#nav").hidden = true; app.innerHTML = vWelcome(); bind(); return; }
   $("#nav").hidden = false;
-  VIEW.length = 0;
+  VIEW.clear();
   $$(".tab").forEach(t => t.setAttribute("aria-current", t.dataset.tab === S.tab ? "page" : "false"));
   app.innerHTML = S.tab === "home" ? vHome() : S.tab === "mov" ? vMov() : S.tab === "charts" ? vCharts() : vPac();
   bind();
@@ -584,7 +586,7 @@ function bind() {
   on("#q", "input", e => { S.movQuery = e.target.value; const pos = e.target.selectionStart; render(); const n = $("#q"); n.focus(); try { n.setSelectionRange(pos, pos); } catch {} });
   $$("[data-filter]").forEach(b => b.addEventListener("click", () => { S.movFilter = b.dataset.filter; render(); }));
   $$("[data-goto]").forEach(b => b.addEventListener("click", () => go(b.dataset.goto)));
-  $$("[data-view]").forEach(b => b.addEventListener("click", () => openDetail(VIEW[+b.dataset.view])));
+  $$("[data-view]").forEach(b => b.addEventListener("click", () => openDetail(VIEW.get(b.dataset.view))));
   $$("[data-cm]").forEach(b => b.addEventListener("click", () => { S.chartMonth = fromIso(b.dataset.cm); render(); }));
   on("#prevC", "click", () => { S.chartMonth = addMonths(S.chartMonth, -1); render(); });
   on("#nextC", "click", () => { S.chartMonth = addMonths(S.chartMonth, 1); render(); });
@@ -652,7 +654,7 @@ function fields() {
     h += `<div class="field"><span class="lab">Tipologia</span>${chips(S.set.spesa, A.tip, "tip")}</div>`;
     h += `<div class="field"><span class="lab">Bisogno o desiderio?</span><div class="seg two">${S.set.categorie.slice(0, 2).map((c, i) => `<button type="button" data-k="cat" data-v="${esc(c)}" aria-pressed="${A.cat === c}"><i class="sw" style="width:9px;height:9px;background:var(${i ? "--s2" : "--s1"})"></i>${esc(c)}</button>`).join("")}</div></div>`;
     h += `<div class="field"><span class="lab">Pagato con</span>${chips(conti, A.conto, "conto")}</div>`;
-    h += `<div class="field"><span class="lab">Quanti mesi copre? (solo per i grafici)</span><div class="seg five">${["1", "2", "3", "6", "12"].map(n => `<button type="button" data-k="mesi" data-v="${n}" aria-pressed="${A.mesi === n}">${n}</button>`).join("")}</div></div>`;
+    h += `<div class="field"><span class="lab">Quanti mesi copre? (solo per i grafici)</span><div class="seg five">${(["1", "2", "3", "6", "12"].includes(A.mesi) ? ["1", "2", "3", "6", "12"] : ["1", "2", "3", "6", "12", A.mesi]).map(n => `<button type="button" data-k="mesi" data-v="${n}" aria-pressed="${A.mesi === n}">${n}</button>`).join("")}</div></div>`;
   } else if (A.tipo === "Entrata") {
     h += `<div class="field"><span class="lab">Da chi</span>${chips(S.set.entrata, A.tip, "tip")}</div>`;
     h += `<div class="field"><span class="lab">Arrivato su</span>${chips(conti, A.conto, "conto")}</div>`;
@@ -781,7 +783,7 @@ async function checkRows(parts) {
   const res = await api("/values:batchGet?" + ranges + "&valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=SERIAL_NUMBER");
   const same = res.valueRanges.every((vr, i) => {
     const r = (vr.values || [])[0] || [], p = parts[i], d = toDate(r[0]);
-    return d && d.getTime() === p.d.getTime() && (r[1] || "") === p.tipo && (r[2] || "") === p.tip && Math.abs(num(r[3]) - p.imp) < 0.005 && (r[5] || "") === p.conto && (r[6] || "") === p.desc;
+    return d && d.getTime() === p.d.getTime() && (r[1] || "") === p.tipo && (r[2] || "") === p.tip && (r[4] || "") === p.cat && Math.abs(num(r[3]) - p.imp) < 0.005 && (r[5] || "") === p.conto && (r[6] || "") === p.desc;
   });
   if (!same) { const e = new Error("changed"); e.code = "changed"; throw e; }
 }
@@ -814,6 +816,8 @@ async function saveEdit(m, rows) {
   try {
     const parts = partsOf(m);
     await checkRows(parts);
+    // Trasferimento con descrizione non toccata: ogni riga tiene il suo testo originale.
+    if (m.kind === "tr" && $("#addDesc").value.trim() === m.desc) rows.forEach((r, i) => r[6] = parts[i].desc);
     const data = parts.map((p, i) => ({ range: "Movimenti!A" + p.row + ":G" + p.row, values: [rows[i]] }));
     await api("/values:batchUpdate", { method: "POST", body: JSON.stringify({ valueInputOption: "USER_ENTERED", data }) });
     closeAdd(); toast("Modifiche salvate"); loadAll();
