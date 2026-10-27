@@ -210,7 +210,9 @@ button.mv{width:100%;background:none;border:none;border-radius:0;padding:8px 0;t
 .more > summary::-webkit-details-marker{display:none}
 .more > summary span{font-weight:500;font-size:13px;color:var(--muted)}
 .more[open] > summary{margin-bottom:12px}
-.sheet-foot{position:sticky;bottom:0;display:grid;grid-template-columns:1fr 2fr;gap:10px;background:var(--bg);padding:10px 0 2px;margin-top:auto}
+.sheet.has-foot{padding-bottom:0}
+.sheet-foot{position:sticky;bottom:0;z-index:1;display:grid;grid-template-columns:1fr 2fr;gap:10px;background:var(--bg);padding:10px 0 calc(env(safe-area-inset-bottom,0px) + 12px);margin-top:auto}
+.sheet.kb .sheet-foot{padding-bottom:10px}
 .sheet-foot .err{grid-column:1/-1}
 .sheet-foot .err:empty{display:none}
 .field{display:flex;flex-direction:column;gap:8px}

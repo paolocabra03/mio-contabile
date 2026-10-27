@@ -773,8 +773,9 @@ function openAdd(draft) {
     <div class="row" style="align-items:center"><h2 class="h1" id="addT" style="font-size:22px">${EDIT ? "Modifica " + (EDIT.kind === "tr" ? "trasferimento" : "movimento") : "Nuovo movimento"}</h2></div>
     ${tipi.length ? `<div class="seg ${tipi.length === 2 ? "two" : ""}" id="segTipo">${tipi.map(t => `<button type="button" data-tipo="${t}" aria-pressed="${A.tipo === t}">${t}</button>`).join("")}</div>` : ""}
     <label class="amount"><span>€</span><input id="amt" inputmode="decimal" placeholder="0,00" autocomplete="off" aria-label="Importo" value="${esc(draft?.amt || "")}"></label>
-    <div class="field"><label for="addDesc">Descrizione</label><input class="inp" id="addDesc" placeholder="es. pizza con Luca" autocomplete="off" value="${esc(draft?.desc || "")}"></div>
     <div id="addFields" class="stack" style="gap:16px"></div>
+    <div class="field"><label for="addDesc">Descrizione</label><input class="inp" id="addDesc" placeholder="es. pizza con Luca" autocomplete="off" value="${esc(draft?.desc || "")}"></div>
+    <div id="addFields2" class="stack" style="gap:16px"></div>
     <details class="more" ${EDIT || +A.mesi > 1 ? "open" : ""}><summary>Altro<span>data${EDIT ? "" : ", mesi"}</span></summary>
       <div class="stack" style="gap:16px">
         <div id="addMesi"></div>
@@ -788,6 +789,7 @@ function openAdd(draft) {
     </div>
   </div></div>`;
   document.body.style.overflow = "hidden";
+  $(".sheet").classList.add("has-foot");
   $("#scrim").onclick = closeAdd; $("#closeAdd").onclick = closeAdd;
   $$("#segTipo button").forEach(b => b.onclick = () => {
     A.tipo = b.dataset.tipo; A.tip = ""; A.tipAll = false; A.conto = (store.get("mc-last") || {})[A.tipo] || "";
@@ -805,6 +807,7 @@ function fitSheet() {
   const sh = $(".sheet"), vv = window.visualViewport; if (!sh || !vv) return;
   sh.style.bottom = Math.max(0, window.innerHeight - vv.height - vv.offsetTop) + "px";
   sh.style.maxHeight = (vv.height - 20) + "px";
+  sh.classList.toggle("kb", window.innerHeight - vv.height > 120); // con la tastiera aperta non serve il margine del bordo inferiore
 }
 // Le tipologie usate più di recente vanno in prima fila; le altre restano nell'ordine del foglio.
 function recentFirst(list, tipo) {
@@ -820,28 +823,29 @@ function chips(list, cur, key, extra = "") {
 }
 function fields() {
   const tutti = S.set.conti.length ? S.set.conti : S.conti.map(c => c.nome);
-  // Il conto ETF si usa solo nei trasferimenti: non si paga una spesa con quello.
-  const conti = A.tipo === "Trasferimento" ? tutti : tutti.filter(c => c !== S.set.contoInv || c === A.conto);
-  let h = "", mesi = "";
+  // ETF e il conto del broker (Trade Republic) si usano solo nei trasferimenti: non ci si paga né ci si riceve uno stipendio.
+  const conti = A.tipo === "Trasferimento" ? tutti : tutti.filter(c => (c !== S.set.contoInv && c !== S.set.contoDa) || c === A.conto);
+  let h = "", h2 = "", mesi = "";
   if (A.tipo === "Spesa") {
     const tl = recentFirst(S.set.spesa, "Spesa"), lungo = tl.length > 6;
     const vis = A.tipAll || !lungo ? tl : tl.slice(0, 5).concat(A.tip && !tl.slice(0, 5).includes(A.tip) ? [A.tip] : []);
     const altre = lungo ? `<button type="button" class="chip more" data-act="tipAll" aria-expanded="${!!A.tipAll}">${A.tipAll ? "Meno" : "Altre " + (tl.length - vis.length)}</button>` : "";
-    h += `<div class="field"><span class="lab">Tipologia</span>${chips(vis, A.tip, "tip", altre)}</div>`;
-    h += `<div class="field"><span class="lab">Bisogno o desiderio?</span><div class="seg two">${S.set.categorie.slice(0, 2).map((c, i) => `<button type="button" data-k="cat" data-v="${esc(c)}" aria-pressed="${A.cat === c}"><i class="sw ${i ? "des" : ""}" style="width:9px;height:9px;background:var(${i ? "--s2" : "--s1"})"></i>${esc(c)}</button>`).join("")}</div></div>`;
     h += `<div class="field"><span class="lab">Pagato con</span>${chips(conti, A.conto, "conto")}</div>`;
+    h += `<div class="field"><span class="lab">Tipologia</span>${chips(vis, A.tip, "tip", altre)}</div>`;
+    h2 += `<div class="field"><span class="lab">Bisogno o desiderio?</span><div class="seg two">${S.set.categorie.slice(0, 2).map((c, i) => `<button type="button" data-k="cat" data-v="${esc(c)}" aria-pressed="${A.cat === c}"><i class="sw ${i ? "des" : ""}" style="width:9px;height:9px;background:var(${i ? "--s2" : "--s1"})"></i>${esc(c)}</button>`).join("")}</div></div>`;
     mesi = `<div class="field"><span class="lab">Quanti mesi copre? (solo per i grafici)</span><div class="seg five">${(["1", "2", "3", "6", "12"].includes(A.mesi) ? ["1", "2", "3", "6", "12"] : ["1", "2", "3", "6", "12", A.mesi]).map(n => `<button type="button" data-k="mesi" data-v="${n}" aria-pressed="${A.mesi === n}">${n}</button>`).join("")}</div></div>`;
   } else if (A.tipo === "Entrata") {
-    h += `<div class="field"><span class="lab">Da chi</span>${chips(recentFirst(S.set.entrata, "Entrata"), A.tip, "tip")}</div>`;
     h += `<div class="field"><span class="lab">Arrivato su</span>${chips(conti, A.conto, "conto")}</div>`;
+    h += `<div class="field"><span class="lab">Da chi</span>${chips(recentFirst(S.set.entrata, "Entrata"), A.tip, "tip")}</div>`;
   } else {
     h += `<div class="field"><span class="lab">Da</span>${chips(conti, A.da, "da")}</div>`;
     h += `<div class="field"><span class="lab">A</span>${chips(conti, A.a, "a")}</div>`;
   }
   $("#addFields").innerHTML = h;
+  $("#addFields2").innerHTML = h2;
   $("#addMesi").innerHTML = mesi;
   $$("#addFields [data-act=tipAll]").forEach(b => b.onclick = () => { A.tipAll = !A.tipAll; fields(); });
-  $$("#addFields [data-k], #addMesi [data-k]").forEach(b => b.onclick = () => { A[b.dataset.k] = b.dataset.v; fields(); });
+  $$("#addFields [data-k], #addFields2 [data-k], #addMesi [data-k]").forEach(b => b.onclick = () => { A[b.dataset.k] = b.dataset.v; fields(); });
 }
 function closeAdd() { window.visualViewport?.removeEventListener("resize", fitSheet); window.visualViewport?.removeEventListener("scroll", fitSheet); $("#overlay").innerHTML = ""; document.body.style.overflow = ""; EDIT = null; if (OPENER && OPENER.isConnected) OPENER.focus?.({ preventScroll: true }); OPENER = null; }
 async function saveAdd() {
