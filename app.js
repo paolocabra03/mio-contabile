@@ -216,6 +216,17 @@ function pendingBanner() {
   return `<div class="card" style="gap:8px;border-color:var(--s2)"><b style="font-weight:600">${n}</b><span class="sub">${msg}</span>${navigator.onLine ? `<button class="btn ghost" id="flushBtn">Invia ora</button>` : ""}</div>`;
 }
 
+// Se sul conto del PAC c'è meno della rata mensile, il prossimo versamento non può partire: avviso di ricaricare.
+function pacWarn() {
+  const plan = S.set.etf.reduce((a, e) => a + e.mensile, 0), da = S.set.contoDa;
+  const c = S.conti.find(x => x.nome === da);
+  if (!plan || !c || c.saldo >= plan) return "";
+  const np = nextPac(), hide = !!store.get("mc-hide");
+  const msg = hide ? `Il saldo non basta per il versamento del ${np.d.getDate()} ${MESI[np.d.getMonth()]}.`
+    : `Ci sono ${eur(c.saldo)}, ma il versamento del ${np.d.getDate()} ${MESI[np.d.getMonth()]} ne preleva ${eur(plan)}. Aggiungi almeno ${eur(plan - c.saldo)}.`;
+  return `<div class="card" role="alert" style="gap:6px;border-color:var(--s2)"><b style="font-weight:600">Ricarica ${esc(da)}</b><span class="sub">${msg}</span></div>`;
+}
+
 /* ---------- calcoli ---------- */
 const isTr = m => m.tip === "Trasferimenti";
 // Una spesa che copre più mesi (es. abbonamento trimestrale) ha nella descrizione "[3 mesi]".
@@ -373,6 +384,7 @@ function vHome() {
   </div>
   ${banner()}
   ${pendingBanner()}
+  ${pacWarn()}
   <section class="hero" aria-label="Patrimonio">
     <div class="top" style="align-items:flex-start"><div class="stack"><span class="eyebrow">Patrimonio</span>
       <span class="big">${liquid.length ? money(tot) : "—"}</span>
@@ -486,6 +498,7 @@ function vPac() {
   return `
   <div class="top"><div class="stack"><span class="eyebrow">Piano di accumulo · ${esc(S.set.contoDa)}</span><h1 class="h1">PAC</h1></div></div>
   ${banner()}
+  ${pacWarn()}
   <section class="hero" aria-label="Prossimo versamento">
     <div class="stack"><span class="eyebrow">Prossimo versamento</span>
       <span class="big" style="font-size:34px;line-height:1.1">${np.d.getDate()} ${MESI[np.d.getMonth()]}</span>
