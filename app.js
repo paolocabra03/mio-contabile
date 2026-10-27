@@ -417,6 +417,7 @@ function changeSheet() {
 }
 // Andamento del patrimonio: si parte dal saldo di oggi e si tolgono, giorno per giorno all'indietro, i movimenti dei conti liquidi.
 // I trasferimenti verso l'ETF abbassano la liquidità, come nel totale. Con le cifre nascoste resta solo la forma della linea.
+let TREND = null;
 const PERIODI = [["1m", "1 mese", 30], ["6m", "6 mesi", 182], ["1a", "1 anno", 365]];
 function trendHtml(names, tot) {
   const per = PERIODI.find(p => p[0] === store.get("mc-per")) || PERIODI[1];
@@ -436,19 +437,42 @@ function trendHtml(names, tot) {
   for (let k = 0; k > start; k--) vals.push(vals[vals.length - 1] - (delta.get(k) || 0));
   vals.reverse();
   const step = Math.max(1, Math.ceil(vals.length / 120));
-  const pts = vals.filter((v, i) => i % step === 0 || i === vals.length - 1);
-  const lo = Math.min(...pts), hi = Math.max(...pts), W = 300, H = 84, pad = 8;
-  const xy = pts.map((v, i) => [i / (pts.length - 1) * W, hi === lo ? H / 2 : pad + (hi - v) / (hi - lo) * (H - 2 * pad)]);
+  const pts = vals.map((v, i) => ({ v, i })).filter(p => p.i % step === 0 || p.i === vals.length - 1);
+  const lo = Math.min(...pts.map(p => p.v)), hi = Math.max(...pts.map(p => p.v)), W = 300, H = 84, pad = 8;
+  const xy = pts.map((p, i) => [i / (pts.length - 1) * W, hi === lo ? H / 2 : pad + (hi - p.v) / (hi - lo) * (H - 2 * pad)]);
   const line = xy.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" ");
   const from = new Date(today.getFullYear(), today.getMonth(), today.getDate() + start);
   const hide = isHidden(), d = tot - vals[0];
   const cap = shortDay(from) + " – oggi" + (hide ? "" : " · " + (d >= 0 ? "+" : "") + eur(d));
   const [lx, ly] = xy[xy.length - 1];
+  TREND = { pts, xy, from, W, H };
   return `<div class="trend">
     <span class="sub">${cap}</span>
-    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Andamento del patrimonio, ${per[1]}${hide ? ". Cifre nascoste" : ""}"><path d="${line} L${W} ${H} L0 ${H}Z" fill="rgba(255,255,255,.14)"/><path d="${line}" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="3.5" fill="#fff"/></svg>
+    <div class="plot" id="plot"><div class="tip" id="tip" hidden></div>
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Andamento del patrimonio, ${per[1]}${hide ? ". Cifre nascoste" : ""}. Scorri il dito per leggere un giorno"><path d="${line} L${W} ${H} L0 ${H}Z" fill="rgba(255,255,255,.14)"/><path d="${line}" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="3.5" fill="#fff"/><line id="trLine" y1="0" y2="${H}" stroke="#fff" stroke-opacity=".55" stroke-width="1" visibility="hidden"/><circle id="trDot" r="4.5" fill="#fff" stroke="var(--hero)" stroke-width="2" visibility="hidden"/></svg></div>
     <div class="per" role="group" aria-label="Periodo">${PERIODI.map(p => `<button type="button" data-per="${p[0]}" aria-pressed="${p === per}">${p[1]}</button>`).join("")}</div>
   </div>`;
+}
+// Toccando o scorrendo il dito sul grafico compare una schedina con il giorno e il patrimonio di quel punto.
+function bindScrub() {
+  const plot = $("#plot"); if (!plot || !TREND) return;
+  const tip = $("#tip"), line = $("#trLine"), dot = $("#trDot"), svg = plot.querySelector("svg");
+  const show = e => {
+    const r = svg.getBoundingClientRect(), { pts, xy, from, W, H } = TREND;
+    const f = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+    const j = Math.round(f * (pts.length - 1)), [x, y] = xy[j];
+    const d = new Date(from.getFullYear(), from.getMonth(), from.getDate() + pts[j].i);
+    line.setAttribute("x1", x); line.setAttribute("x2", x); dot.setAttribute("cx", x); dot.setAttribute("cy", y);
+    line.setAttribute("visibility", "visible"); dot.setAttribute("visibility", "visible");
+    tip.innerHTML = "<span>" + dayLabel(d) + " " + d.getFullYear() + "</span><b>" + M(pts[j].v) + "</b>";
+    tip.hidden = false;
+    const w = tip.offsetWidth, px = x / W * r.width;
+    tip.style.left = Math.min(Math.max(0, px - w / 2), r.width - w) + "px";
+  };
+  const hideTip = () => { tip.hidden = true; line.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); };
+  plot.addEventListener("pointerdown", e => { plot.setPointerCapture?.(e.pointerId); show(e); });
+  plot.addEventListener("pointermove", e => { if (e.pointerType !== "mouse" || e.buttons || !tip.hidden) show(e); });
+  ["pointerup", "pointercancel", "pointerleave"].forEach(t => plot.addEventListener(t, hideTip));
 }
 function vHome() {
   const now = new Date();
@@ -675,6 +699,7 @@ function bind() {
   on("#nextM", "click", () => { S.movMonth = addMonths(S.movMonth, 1); render(); });
   on("#q", "input", e => { S.movQuery = e.target.value; const pos = e.target.selectionStart; render(); const n = $("#q"); n.focus(); try { n.setSelectionRange(pos, pos); } catch {} });
   $$("[data-filter]").forEach(b => b.addEventListener("click", () => { S.movFilter = b.dataset.filter; render(); }));
+  bindScrub();
   $$("[data-per]").forEach(b => b.addEventListener("click", () => { store.set("mc-per", b.dataset.per); render(); }));
   $$("[data-goto]").forEach(b => b.addEventListener("click", () => go(b.dataset.goto)));
   $$("[data-view]").forEach(b => b.addEventListener("click", () => openDetail(VIEW.get(b.dataset.view))));
