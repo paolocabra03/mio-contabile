@@ -93,6 +93,9 @@ button{cursor:pointer}
 .mv{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 0}
 button.mv{width:100%;background:none;border:none;border-radius:0;padding:8px 0;text-align:left;color:inherit;font:inherit}
 .mv + .mv{border-top:1px solid var(--line-soft)}
+.mv.single{grid-template-columns:minmax(0,1fr) auto}
+.card > .more > summary{border-top:none;padding-top:0}
+.card > .more[open] > summary{margin-bottom:12px}
 .badge{width:36px;height:36px;border-radius:11px;background:var(--sunk);color:var(--muted);display:grid;place-items:center;font-weight:700;font-size:13px}
 .badge.in{background:var(--accent-soft);color:var(--accent)}
 .badge svg{width:18px;height:18px}

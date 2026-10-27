@@ -527,6 +527,7 @@ function vPac() {
   const bal = n => S.conti.find(c => c.nome === n)?.saldo;
   const colors = ["--s1", "--s2"];
   const labels = ["Azioni", "Obbligazioni"];
+  const single = etf.length === 1; // con un solo ETF la ripartizione e le ripetizioni non dicono niente
   const hist = byDateDesc(S.pac.map((p, i) => ({ ...p, row: i }))).slice(0, 12);
   return `
   <div class="top"><div class="stack"><span class="eyebrow">Piano di accumulo · ${esc(S.set.contoDa)}</span><h1 class="h1">PAC</h1></div></div>
@@ -545,11 +546,11 @@ function vPac() {
     <span class="eyebrow">I tuoi ETF</span>
     ${etf.map((e, i) => { const v = vers(e.nome); return `<div class="etf">
       <div class="row"><span class="nm">${esc(e.nome)}</span><b style="white-space:nowrap">${M0(e.mensile)}/mese</b></div>
-      <div class="row sub"><span>${esc(e.isin || "")}${e.isin ? " · " : ""}versato ${M(v)}</span><span>${plan ? Math.round(e.mensile / plan * 100) : 0}%</span></div>
+      ${single ? (e.isin ? `<div class="row sub"><span>${esc(e.isin)}</span></div>` : "") : `<div class="row sub"><span>${esc(e.isin || "")}${e.isin ? " · " : ""}versato ${M(v)}</span><span>${plan ? Math.round(e.mensile / plan * 100) : 0}%</span></div>`}
       ${e.valore != null ? `<div class="row sub"><span>valore ${M(e.valore)}</span><span class="${e.valore - v >= 0 ? "pos" : "neg"}">${e.valore - v >= 0 ? "+" : ""}${M(e.valore - v)}</span></div>` : ""}
       ${i === 0 && S.set.quote != null ? `<div class="row sub"><span>${S.set.quote.toLocaleString("it-IT", { maximumFractionDigits: 6 })} quote${S.set.prezzo != null ? " · " + M(S.set.prezzo) + " a quota (Google Finance)" : ""}</span></div>` : ""}
     </div>`; }).join("") || `<span class="empty">Aggiungi gli ETF nel foglio Impostazioni.</span>`}
-    ${etf.length ? `<div class="split">${etf.map((e, i) => `<i style="width:${plan ? e.mensile / plan * 100 : 0}%;background:var(${colors[i] || "--muted"})"></i>`).join("")}</div>
+    ${etf.length > 1 ? `<div class="split">${etf.map((e, i) => `<i style="width:${plan ? e.mensile / plan * 100 : 0}%;background:var(${colors[i] || "--muted"})"></i>`).join("")}</div>
     <div class="legend">${etf.map((e, i) => `<span><i class="sw" style="background:var(${colors[i] || "--muted"})"></i>${labels[i] || esc(e.nome)}</span>`).join("")}</div>` : ""}
     <button class="btn ghost" id="toggleVal">${S.valForm ? "Chiudi" : "Aggiorna quote possedute"}</button>
     ${S.valForm ? `<form id="valForm" class="stack" style="gap:12px">
@@ -560,8 +561,10 @@ function vPac() {
   </section>
   <section class="card">
     <div class="row"><span class="eyebrow">Versamenti</span><span class="sub">${S.pac.length} registrati</span></div>
-    ${hist.length ? `<div class="list">${hist.map(p => `<div class="mv"><span class="badge in" aria-hidden="true">${esc((p.etf.split(" ")[2] || "ET").slice(0, 2))}</span>
-      <div class="t"><b>${esc(p.etf)}</b><span>${p.d.getDate()} ${MESI[p.d.getMonth()]} ${p.d.getFullYear()}${p.quote ? " · " + p.quote.toLocaleString("it-IT", { maximumFractionDigits: 4 }) + " quote" : ""}</span></div>
+    ${hist.length ? `<div class="list">${hist.map(p => `${single
+      ? `<div class="mv single"><div class="t"><b>${p.d.getDate()} ${MESI[p.d.getMonth()]} ${p.d.getFullYear()}</b>${p.quote ? `<span>${p.quote.toLocaleString("it-IT", { maximumFractionDigits: 4 })} quote</span>` : ""}</div>`
+      : `<div class="mv"><span class="badge in" aria-hidden="true">${esc((p.etf.split(" ")[2] || "ET").slice(0, 2))}</span>
+      <div class="t"><b>${esc(p.etf)}</b><span>${p.d.getDate()} ${MESI[p.d.getMonth()]} ${p.d.getFullYear()}${p.quote ? " · " + p.quote.toLocaleString("it-IT", { maximumFractionDigits: 4 }) + " quote" : ""}</span></div>`}
       <span class="a">${M(p.imp)}</span></div>`).join("")}</div>` : `<span class="sub" style="font-size:14px">Il primo arriva il ${np.d.getDate()} ${MESI[np.d.getMonth()]}. Registralo qui quando il broker lo esegue.</span>`}
     <button class="btn ghost" id="togglePac">${S.pacForm ? "Chiudi" : "Registra versamento"}</button>
     ${S.pacForm ? `<form id="pacForm" class="stack" style="gap:12px">
@@ -574,14 +577,21 @@ function vPac() {
       <button class="btn" type="submit" id="pacSave">Salva versamento</button></form>` : ""}
   </section>
   <section class="card">
-    <span class="eyebrow">Versato se continui</span>
-    <div class="kv4">${[5, 10, 20, 40].map(y => `<div><span class="sub" style="font-size:12px">${y} anni</span><b>${MK(plan * 12 * y)}</b></div>`).join("")}</div>
-    <span class="sub" style="font-size:12px">Solo la somma dei versamenti, senza rendimento.</span>
+    <details class="more"><summary>Versato se continui<span>5, 10, 20, 40 anni</span></summary>
+      <div class="stack" style="gap:10px">
+        <div class="kv4">${[5, 10, 20, 40].map(y => `<div><span class="sub" style="font-size:12px">${y} anni</span><b>${MK(plan * 12 * y)}</b></div>`).join("")}</div>
+        <span class="sub" style="font-size:12px">Solo la somma dei versamenti, senza rendimento.</span>
+      </div>
+    </details>
   </section>
-  <div class="row" style="justify-content:center;gap:24px">
-    <button class="link" id="changeSheet" style="color:var(--muted)">Cambia foglio</button>
-    <button class="link" id="logout" style="color:var(--muted)">Esci dall'account Google</button>
-  </div>`;
+  <section class="card">
+    <details class="more"><summary>Foglio e account<span>cambia foglio, esci</span></summary>
+      <div class="stack" style="gap:10px">
+        <button class="btn ghost" id="changeSheetAsk" data-ask="Tocca ancora per cambiare foglio">Cambia foglio</button>
+        <button class="btn danger" id="logoutAsk" data-ask="Tocca ancora per uscire">Esci dall'account Google</button>
+      </div>
+    </details>
+  </section>`;
 }
 
 /* ---------- render ---------- */
@@ -620,6 +630,15 @@ function bind() {
   on("#pacForm", "submit", savePac);
   on("#valForm", "submit", saveVal);
   on("#logout", "click", logout);
+  // Azioni che cancellano la copia sul telefono: il secondo tocco conferma, la richiesta scade dopo 4 secondi.
+  [["#changeSheetAsk", changeSheet], ["#logoutAsk", logout]].forEach(([sel, fn]) => {
+    const b = $(sel); if (!b) return;
+    b.addEventListener("click", () => {
+      if (b.dataset.armed) { fn(); return; }
+      const old = b.textContent; b.dataset.armed = "1"; b.textContent = b.dataset.ask; b.classList.add("armed");
+      setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = old; b.classList.remove("armed"); } }, 4000);
+    });
+  });
   $$("#changeSheet").forEach(b => b.addEventListener("click", changeSheet)); // in PAC può comparirne due (avviso e fondo pagina)
   on("#setupForm", "submit", submitSetup);
   on("#flushBtn", "click", () => { flush().then(() => loadAll()); });
