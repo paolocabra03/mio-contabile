@@ -42,6 +42,12 @@ const parseInputAmount = (s, dec = 2) => {
   const k = Math.pow(10, dec);
   return Math.round(parseFloat(t) * k) / k;
 };
+// Le quote non sono mai a migliaia: il punto è sempre un decimale ("1.164" = 1,164). Fino a 6 decimali; NaN se non è un numero.
+const parseQuote = s => {
+  let t = String(s || "").trim().replace(/\s/g, "");
+  if (t.includes(",")) t = t.replace(/\./g, "").replace(",", ".");
+  return /^\d+(\.\d+)?$/.test(t) ? Math.round(parseFloat(t) * 1e6) / 1e6 : NaN;
+};
 const toDate = v => {
   if (typeof v === "number") { const d = new Date(1899, 11, 30); d.setDate(d.getDate() + Math.floor(v)); return d; }
   const m = String(v || "").match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
@@ -613,7 +619,22 @@ function bind() {
   $$("#changeSheet").forEach(b => b.addEventListener("click", changeSheet)); // in PAC può comparirne due (avviso e fondo pagina)
   on("#setupForm", "submit", submitSetup);
   on("#flushBtn", "click", () => { flush().then(() => loadAll()); });
-  on("#discardBtn", "click", e => { Q.remove(e.currentTarget.dataset.id); render(); toast("Movimento rifiutato scartato"); loadAll(); });
+  const dis = $("#discardBtn");
+  if (dis) {
+    // Come Elimina: primo tocco chiede conferma, secondo (dopo mezzo secondo) scarta; la conferma scade dopo 4 secondi.
+    const part = (Q.all().find(x => x.id === dis.dataset.id) || {}).done > 0;
+    let armedAt = 0;
+    dis.addEventListener("click", () => {
+      if (!dis.classList.contains("armed")) {
+        dis.classList.add("armed"); armedAt = Date.now();
+        dis.textContent = part ? "Una parte è già nel foglio. Tocca di nuovo per scartare il resto" : "Tocca di nuovo per scartarlo";
+        setTimeout(() => { if (dis.isConnected) { dis.classList.remove("armed"); dis.textContent = "Scarta il movimento rifiutato"; } }, 4000);
+        return;
+      }
+      if (Date.now() - armedAt < 600) return;
+      Q.remove(dis.dataset.id); render(); toast("Movimento rifiutato scartato"); loadAll();
+    });
+  }
 }
 function go(tab) { S.tab = tab; render(); window.scrollTo(0, 0); }
 
@@ -685,7 +706,7 @@ function closeAdd() { $("#overlay").innerHTML = ""; document.body.style.overflow
 async function saveAdd() {
   const err = $("#addErr"); err.textContent = "";
   const amtRaw = $("#amt").value, imp = parseInputAmount(amtRaw);
-  const dRaw = $("#addDate").value, d = dRaw ? fromIso(dRaw) : new Date();
+  const dRaw = $("#addDate").value, d = fromIso(dRaw || isoDate(new Date()));
   const desc = $("#addDesc").value.trim();
   if (!(imp > 0)) { err.textContent = "Scrivi un importo maggiore di zero."; return; }
   const ds = sheetDate(d);
@@ -802,7 +823,9 @@ async function checkRows(parts) {
   const res = await api("/values:batchGet?" + ranges + "&valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=SERIAL_NUMBER");
   const same = res.valueRanges.every((vr, i) => {
     const r = (vr.values || [])[0] || [], p = parts[i], d = toDate(r[0]);
-    return d && d.getTime() === p.d.getTime() && (r[1] || "") === p.tipo && (r[2] || "") === p.tip && (r[4] || "") === p.cat && Math.abs(num(r[3]) - p.imp) < 0.005 && (r[5] || "") === p.conto && (r[6] || "") === p.desc;
+    // Come testo: una descrizione tipo "2024" torna dal foglio come numero.
+    const s = x => String(x ?? "");
+    return d && d.getTime() === p.d.getTime() && s(r[1]) === s(p.tipo) && s(r[2]) === s(p.tip) && s(r[4]) === s(p.cat) && Math.abs(num(r[3]) - p.imp) < 0.005 && s(r[5]) === s(p.conto) && s(r[6]) === s(p.desc);
   });
   if (!same) { const e = new Error("changed"); e.code = "changed"; throw e; }
 }
@@ -852,11 +875,16 @@ async function savePac(ev) {
   const err = $("#pacErr"); err.textContent = "";
   const d = $("#pacDate").value ? fromIso($("#pacDate").value) : new Date(), ds = sheetDate(d);
   const rows = [];
+  let bad = "";
   S.set.etf.forEach((e, i) => {
-    // Le quote hanno fino a 6 decimali: non si arrotondano ai centesimi.
-    const imp = parseInputAmount($("#pacAmt" + i).value), q = parseInputAmount($("#pacQ" + i).value, 6);
-    if (imp > 0) rows.push([ds, e.nome, imp, q > 0 ? q : "", q > 0 ? Math.round(imp / q * 100) / 100 : "", ""]);
+    const aRaw = $("#pacAmt" + i).value.trim(), qRaw = $("#pacQ" + i).value.trim();
+    const imp = parseInputAmount(aRaw), q = parseQuote(qRaw);
+    // Un campo compilato ma non leggibile non si scarta in silenzio: si avvisa.
+    if (aRaw && !(imp > 0)) bad = "Importo non valido per " + e.nome + ".";
+    else if (qRaw && !(q > 0)) bad = "Quote non valide per " + e.nome + ": scrivi solo il numero, per esempio 0,5.";
+    else if (imp > 0) rows.push([ds, e.nome, imp, q > 0 ? q : "", q > 0 ? Math.round(imp / q * 100) / 100 : "", ""]);
   });
+  if (bad) { err.textContent = bad; return; }
   if (!rows.length) { err.textContent = "Inserisci almeno un importo."; return; }
   const tot = rows.reduce((a, r) => a + r[2], 0);
   const ops = [{ range: "PAC!A:F", rows }];
@@ -878,10 +906,7 @@ function queueToast() {
 async function saveVal(ev) {
   ev.preventDefault();
   const err = $("#valErr"); err.textContent = "";
-  // Le quote hanno fino a 6 decimali: niente arrotondamento ai centesimi.
-  let t = $("#quoteIn").value.trim().replace(/\s/g, "");
-  if (t.includes(",")) t = t.replace(/\./g, "").replace(",", ".");
-  const q = parseFloat(t);
+  const q = parseQuote($("#quoteIn").value);
   if (!(q > 0)) { err.textContent = "Scrivi il numero di quote, per esempio 1,164669."; return; }
   const btn = $("#valSave"); btn.disabled = true; btn.textContent = "Salvo…";
   try {
