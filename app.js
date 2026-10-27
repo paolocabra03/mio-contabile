@@ -415,6 +415,41 @@ function changeSheet() {
   S.mov = []; S.conti = []; S.pac = []; S.loadedAt = null; S.error = null;
   render();
 }
+// Andamento del patrimonio: si parte dal saldo di oggi e si tolgono, giorno per giorno all'indietro, i movimenti dei conti liquidi.
+// I trasferimenti verso l'ETF abbassano la liquidità, come nel totale. Con le cifre nascoste resta solo la forma della linea.
+const PERIODI = [["1m", "1 mese", 30], ["6m", "6 mesi", 182], ["1a", "1 anno", 365]];
+function trendHtml(names, tot) {
+  const per = PERIODI.find(p => p[0] === store.get("mc-per")) || PERIODI[1];
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const delta = new Map();
+  let first = 0;
+  S.mov.forEach(m => {
+    if (!names.has(m.conto)) return;
+    const k = Math.round((new Date(m.d.getFullYear(), m.d.getMonth(), m.d.getDate()) - today) / 864e5);
+    if (k > 0) return;
+    delta.set(k, (delta.get(k) || 0) + (m.tipo === "Entrata" ? m.imp : -m.imp));
+    if (k < first) first = k;
+  });
+  const start = Math.max(-per[2], first - 1);
+  if (start > -2) return "";
+  const vals = [tot];
+  for (let k = 0; k > start; k--) vals.push(vals[vals.length - 1] - (delta.get(k) || 0));
+  vals.reverse();
+  const step = Math.max(1, Math.ceil(vals.length / 120));
+  const pts = vals.filter((v, i) => i % step === 0 || i === vals.length - 1);
+  const lo = Math.min(...pts), hi = Math.max(...pts), W = 300, H = 84, pad = 8;
+  const xy = pts.map((v, i) => [i / (pts.length - 1) * W, hi === lo ? H / 2 : pad + (hi - v) / (hi - lo) * (H - 2 * pad)]);
+  const line = xy.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" ");
+  const from = new Date(today.getFullYear(), today.getMonth(), today.getDate() + start);
+  const hide = isHidden(), d = tot - vals[0];
+  const cap = shortDay(from) + " – oggi" + (hide ? "" : " · " + (d >= 0 ? "+" : "") + eur(d));
+  const [lx, ly] = xy[xy.length - 1];
+  return `<div class="trend">
+    <span class="sub">${cap}</span>
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Andamento del patrimonio, ${per[1]}${hide ? ". Cifre nascoste" : ""}"><path d="${line} L${W} ${H} L0 ${H}Z" fill="rgba(255,255,255,.14)"/><path d="${line}" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="3.5" fill="#fff"/></svg>
+    <div class="per" role="group" aria-label="Periodo">${PERIODI.map(p => `<button type="button" data-per="${p[0]}" aria-pressed="${p === per}">${p[1]}</button>`).join("")}</div>
+  </div>`;
+}
 function vHome() {
   const now = new Date();
   // Il conto investimenti (ETF) non entra nel patrimonio e non compare in Home: si vede nella schermata PAC.
@@ -441,6 +476,7 @@ function vHome() {
       <span class="big">${liquid.length ? money(tot) : "—"}</span>
       <span class="sub">su ${liquid.length} conti${time ? " · aggiornato alle " + time : ""}</span></div>
       <button class="eye" id="toggleHide" aria-pressed="${hide}" aria-label="${hide ? "Mostra le cifre" : "Nascondi le cifre"}">${hide ? ICON.eyeOff : ICON.eye}</button></div>
+    ${trendHtml(new Set(liquid.map(c => c.nome)), tot)}
     <div class="tiles">${liquid.slice().sort((a, b) => b.saldo - a.saldo).map(c => `<div class="tile"><span>${esc(c.nome)}</span><b>${money(c.saldo)}</b></div>`).join("")}</div>
   </section>
   <section class="card">
@@ -639,6 +675,7 @@ function bind() {
   on("#nextM", "click", () => { S.movMonth = addMonths(S.movMonth, 1); render(); });
   on("#q", "input", e => { S.movQuery = e.target.value; const pos = e.target.selectionStart; render(); const n = $("#q"); n.focus(); try { n.setSelectionRange(pos, pos); } catch {} });
   $$("[data-filter]").forEach(b => b.addEventListener("click", () => { S.movFilter = b.dataset.filter; render(); }));
+  $$("[data-per]").forEach(b => b.addEventListener("click", () => { store.set("mc-per", b.dataset.per); render(); }));
   $$("[data-goto]").forEach(b => b.addEventListener("click", () => go(b.dataset.goto)));
   $$("[data-view]").forEach(b => b.addEventListener("click", () => openDetail(VIEW.get(b.dataset.view))));
   $$("[data-cm]").forEach(b => b.addEventListener("click", () => { S.chartMonth = fromIso(b.dataset.cm); render(); }));
