@@ -438,7 +438,7 @@ function trendHtml(names, tot) {
   vals.reverse();
   const step = Math.max(1, Math.ceil(vals.length / 120));
   const pts = vals.map((v, i) => ({ v, i })).filter(p => p.i % step === 0 || p.i === vals.length - 1);
-  const lo = Math.min(...pts.map(p => p.v)), hi = Math.max(...pts.map(p => p.v)), W = 300, H = 84, pad = 8;
+  const lo = Math.min(...pts.map(p => p.v)), hi = Math.max(...pts.map(p => p.v)), W = 300, H = isHidden() ? 44 : 84, pad = 8;
   const xy = pts.map((p, i) => [i / (pts.length - 1) * W, hi === lo ? H / 2 : pad + (hi - p.v) / (hi - lo) * (H - 2 * pad)]);
   const line = xy.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" ");
   const from = new Date(today.getFullYear(), today.getMonth(), today.getDate() + start);
@@ -506,12 +506,12 @@ function vHome() {
       <span class="sub">su ${liquid.length} conti${time ? " · aggiornato alle " + time : ""}</span></div>
       <button class="eye" id="toggleHide" aria-pressed="${hide}" aria-label="${hide ? "Mostra le cifre" : "Nascondi le cifre"}">${hide ? ICON.eyeOff : ICON.eye}</button></div>
     ${trendHtml(new Set(liquid.map(c => c.nome)), tot)}
-    <div class="tiles">${liquid.slice().sort((a, b) => b.saldo - a.saldo).map(c => `<div class="tile"><span>${esc(c.nome)}</span><b>${money(c.saldo)}</b></div>`).join("")}</div>
+    ${hide ? "" : `<div class="tiles">${liquid.slice().sort((a, b) => b.saldo - a.saldo).map(c => `<div class="tile"><span>${esc(c.nome)}</span><b>${money(c.saldo)}</b></div>`).join("")}</div>`}
   </section>
   <section class="card">
     <div class="row"><span class="eyebrow">Questo mese</span><span class="sub" style="font-size:12px">trasferimenti esclusi</span></div>
     <div class="trio">
-      <div class="stack"><span class="sub">Entrate</span><b>${M(st.ent)}</b></div>
+      <div class="stack"><span class="sub">Entrate</span><b class="pos">${M(st.ent)}</b></div>
       <div class="stack"><span class="sub">Uscite</span><b class="out">${M(st.usc)}</b></div>
       <div class="stack"><span class="sub">Netto</span><b class="${hide ? "" : st.net >= 0 ? "pos" : ""}">${hide ? "" : st.net >= 0 ? "+" : ""}${M(st.net)}</b></div>
     </div>
@@ -586,11 +586,11 @@ function vCharts() {
     <button class="round-btn" id="nextC" aria-label="Mese successivo" ${sel >= last ? "disabled" : ""}>${ICON.next}</button>
   </div>
   <section class="card">
-    <div class="row"><span class="eyebrow">Spese per tipologia</span><b style="font-weight:600">${M(st.usc)}</b></div>
+    <div class="row"><span class="eyebrow">Spese per tipologia</span><b class="out" style="font-weight:600">${M(st.usc)}</b></div>
     ${hbars(st.byTip, "--out", "Nessuna spesa a " + name + ".")}
   </section>
   <section class="card">
-    <div class="row"><span class="eyebrow">Entrate per tipologia</span><b style="font-weight:600">${M(st.ent)}</b></div>
+    <div class="row"><span class="eyebrow">Entrate per tipologia</span><b class="pos" style="font-weight:600">${M(st.ent)}</b></div>
     ${hbars(st.byEnt, "--in", "Nessuna entrata a " + name + ".")}
   </section>
   <span class="sub">Trasferimenti tra conti esclusi. Le spese che coprono più mesi sono divise tra quei mesi.</span>`;
@@ -925,7 +925,7 @@ function openDetail(m) {
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="detT"><div class="sheet-in">
     <div class="grab" aria-hidden="true"></div>
     <div class="row" style="align-items:center"><h2 class="h1" id="detT" style="font-size:22px">${esc(title)}</h2><button class="link" id="closeAdd" style="font-size:15px">Chiudi</button></div>
-    <span class="big ${inc && !isTr(m) ? "pos" : ""}" style="font-size:36px">${m.kind === "tr" ? "" : inc ? "+" : "−"}${eur(m.imp)}</span>
+    <span class="big ${isTr(m) || m.kind === "tr" ? "" : inc ? "pos" : "out"}" style="font-size:36px">${m.kind === "tr" ? "" : inc ? "+" : "−"}${eur(m.imp)}</span>
     <div class="det">${detailRows(m)}</div>
     ${m.pending ? `<span class="sub">In attesa di invio al foglio: potrai modificarlo o eliminarlo dopo l'invio.</span>`
       : `<span class="err" id="detErr" role="alert"></span>
