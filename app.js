@@ -634,7 +634,7 @@ function vPac() {
     <button class="btn ghost" id="toggleVal">${S.valForm ? "Chiudi" : "Aggiorna quote possedute"}</button>
     ${S.valForm ? `<form id="valForm" class="stack" style="gap:12px">
       <div class="field"><label for="quoteIn">Quote totali che vedi su ${esc(S.set.contoDa || "il broker")}</label><input class="inp" id="quoteIn" inputmode="decimal" placeholder="es. 1,164669" value="${S.set.quote != null ? S.set.quote.toLocaleString("it-IT", { maximumFractionDigits: 6 }) : ""}"></div>
-      <span class="sub" style="font-size:12.5px">Il valore si calcola da solo: quote × prezzo di oggi.</span>
+      <span class="sub" style="font-size:13px">Il valore si calcola da solo: quote × prezzo di oggi.</span>
       <span class="err" id="valErr" role="alert"></span>
       <button class="btn" type="submit" id="valSave">Salva quote</button></form>` : ""}
   </section>
