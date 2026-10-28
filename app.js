@@ -777,7 +777,7 @@ function openAdd(draft) {
     ${tipi.length ? `<div class="seg ${tipi.length === 2 ? "two" : ""}" id="segTipo">${tipi.map(t => `<button type="button" data-tipo="${t}" aria-pressed="${A.tipo === t}">${t}</button>`).join("")}</div>` : ""}
     <label class="amount"><span>€</span><input id="amt" inputmode="decimal" placeholder="0,00" autocomplete="off" aria-label="Importo" value="${esc(draft?.amt || "")}"></label>
     <div id="addFields" class="stack" style="gap:16px"></div>
-    <div class="field"><label for="addDesc">Descrizione</label><input class="inp" id="addDesc" placeholder="es. pizza con Luca" autocomplete="off" value="${esc(draft?.desc || "")}"></div>
+    <div class="field"><label for="addDesc">Descrizione</label><input class="inp" id="addDesc" placeholder="es. pizza con Rosalba" autocomplete="off" value="${esc(draft?.desc || "")}"></div>
     <div id="addFields2" class="stack" style="gap:16px"></div>
     <details class="more" ${EDIT || +A.mesi > 1 ? "open" : ""}><summary>Altro<span>data${EDIT ? "" : ", mesi"}</span></summary>
       <div class="stack" style="gap:16px">
